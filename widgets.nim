@@ -22,19 +22,16 @@ type
     Hover, MouseUp, MouseDown
   Events = set[Event]
   Widget = object of RootObj
-  # ButtonCallback = proc (tr: var TerminalBuffer)
     x: int
     y: int
     color: ForegroundColor
     bgcolor: BackgroundColor
-    # enabled: bool 
   Button = object of Widget
     text: string
     pressed: bool
     boxBuffer: BoxBuffer
     w: int
     h: int
-    # cb: ButtonCallback 
   Checkbox = object of Widget
     text: string
     checked: bool
@@ -57,8 +54,6 @@ type
     focus: bool
     w: int
     caretIdx: int
-
-# macro preserveColor()
 
 # proc newRadioButtinGroup(radioButtons: seq[RadioButton]) =
 #   for radioButton in radioButton:
@@ -83,7 +78,6 @@ type
 #########################################################################################################
 # InfoBox
 #########################################################################################################
-
 proc newInfoBox(text: string, x, y: int, w = 10, color = fgBlack, bgcolor = bgWhite): InfoBox =
   result = InfoBox(
     text: text,
@@ -102,15 +96,12 @@ proc inside(wid: InfoBox, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.w) and (mi.y == wid.y)
 
 proc dispatch(tb: var TerminalBuffer, wid: InfoBox, mi: MouseInfo): Events {.discardable.} = 
-  # if not enabled: return
   if wid.inside(mi) and mi.action == Pressed: result.incl MouseDown
   if wid.inside(mi) and mi.action == Released: result.incl MouseUp
-
 
 #########################################################################################################
 # Checkbox
 #########################################################################################################
-
 proc newCheckbox(text: string, x, y: int, color = fgBlue): Checkbox =
   result = Checkbox(
     text: text,
@@ -129,9 +120,7 @@ proc inside(wid: Checkbox, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.text.len + 3) and (mi.y == wid.y)
 
 proc dispatch(tr: var TerminalBuffer, wid: var Checkbox, mi: MouseInfo): Events {.discardable.} = 
-  ## if the mouse clicks this button 
-  # result = false
-  # if not enabled: return
+  if not wid.inside(mi): return
   if wid.inside(mi) and mi.action == Pressed:
     result.incl MouseDown
   if wid.inside(mi) and mi.action == Released:
@@ -141,18 +130,17 @@ proc dispatch(tr: var TerminalBuffer, wid: var Checkbox, mi: MouseInfo): Events 
 #########################################################################################################
 # RadioBox
 #########################################################################################################
-
 proc newRadioBox(text: string, x, y: int, color = fgBlue): Checkbox =
   ## Radio box is actually a checkbox, you need to add the checkbox to a radio button group
   result = newCheckbox(text, x, y, color)
   result.textChecked = "(X) "
   result.textUnchecked = "( ) "
 
+# proc
 
 #########################################################################################################
 # Button
 #########################################################################################################
-
 proc newButton(text: string, x, y, w, h: int, color = fgBlue): Button = #, cb = ButtonCallback): Button = 
   result = Button(
     text: text,
@@ -184,7 +172,6 @@ proc inside(wid: Button, mi: MouseInfo): bool =
 
 proc dispatch(tr: var TerminalBuffer, wid: var Button, mi: MouseInfo): Events {.discardable.} = 
   ## if the mouse clicks this button 
-  # if not enabled: return
   result = {}
   if not wid.inside(mi): 
     wid.pressed = false
@@ -201,11 +188,15 @@ proc dispatch(tr: var TerminalBuffer, wid: var Button, mi: MouseInfo): Events {.
 # ChooseBox
 #########################################################################################################
 proc grow(wid: var ChooseBox) =
-  if wid.elements.len > wid.h: wid.h = wid.elements.len # TODO allowedToGrow
+  if wid.elements.len >= wid.h: wid.h = wid.elements.len+1 # TODO allowedToGrow
+
+proc add(wid: var ChooseBox, elem: string) = 
+  ## adds element to the list, grows the box immediately
+  wid.elements.add(elem)
+  wid.grow()
 
 proc newChooseBox(elements: seq[string], x, y, w, h: int, color = fgBlue, label = "", choosenidx = 0): ChooseBox =
   result = ChooseBox(
-    # label: label,
     elements: elements,
     choosenidx: choosenidx,
     x: x,
@@ -240,18 +231,15 @@ proc render(tb: var TerminalBuffer, wid: ChooseBox) {.preserveColor.} =
     wid.y,
     wid.x + wid.w, 
     wid.y + wid.h, 
-    # doubleStyle=wid.pressed, 
   )
 
 proc inside(wid: ChooseBox, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.w) and (mi.y in wid.y .. wid.y+wid.h)
 
 proc dispatch(tr: var TerminalBuffer, wid: var ChooseBox, mi: MouseInfo): Events {.discardable.} = 
-  ## if the mouse clicks this button 
   result = {}
   wid.grow()
   if not wid.inside(mi): 
-    # wid.pressed = false
     return
   case mi.action
   of Pressed:
@@ -263,18 +251,16 @@ proc dispatch(tr: var TerminalBuffer, wid: var ChooseBox, mi: MouseInfo): Events
 #########################################################################################################
 # TextBox
 #########################################################################################################
-
 proc newTextBox(text: string, x, y: int, w = 10, color = fgBlack, bgcolor = bgCyan, placeholder = ""): TextBox =
   ## TODO a good textbox is COMPLICATED, this is a VERY basic one!! PR's welcome ;)
   result = TextBox(
-    text: text, #text.alignLeft(w, ' '),
+    text: text,
     x: x,
     y: y,
     w: w,
     color: color,
     bgcolor: bgcolor,
     placeholder: placeholder
-    # caretChar: 
   )
 
 proc render(tb: var TerminalBuffer, wid: TextBox) {.preserveColor.} =
@@ -284,7 +270,6 @@ proc render(tb: var TerminalBuffer, wid: TextBox) {.preserveColor.} =
     tb.write(wid.x, wid.y, wid.text)
     if wid.text.len < wid.w:
       tb.write(wid.x + wid.caretIdx, wid.y, styleReverse, " ", resetStyle)
-    # tb.write()
   else:
     tb.write(wid.x, wid.y,
       wid.text[0..wid.caretIdx-1], 
@@ -293,7 +278,6 @@ proc render(tb: var TerminalBuffer, wid: TextBox) {.preserveColor.} =
       resetStyle,
       wid.color, wid.bgcolor,
       wid.text[wid.caretIdx+1..^1], 
-      #" ".repeat( wid.w - wid.text.len ),
       resetStyle
       )
 
@@ -301,7 +285,6 @@ proc inside(wid: TextBox, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.w) and (mi.y == wid.y)
 
 proc dispatch(tb: var TerminalBuffer, wid: var TextBox, mi: MouseInfo): Events {.discardable.} = 
-  # if not enabled: return
   if wid.inside(mi) and mi.action == Pressed: 
     result.incl MouseDown
   if wid.inside(mi) and mi.action == Released: 
@@ -344,29 +327,18 @@ proc handleKey(tb: var TerminalBuffer, wid: var TextBox, key: Key): bool {.disca
     incCaret
   of Left:
     decCaret
-  else:    
-
-    var ch = ""
-    # if ($key).startsWith("Shift"):
-    #   ch = ($key)[5..^1].toUpper
-    # else:
-    #   ch = ($key).toLower
-    ch = $key.char
-
-    case key
-    of Space: ch = " "
-    else:
-      discard
-
+  else:
+    # Add ascii representation
+    var ch = $key.char
     if wid.text.len < wid.w:
       wid.text.insert(ch, wid.caretIdx)
       wid.caretIdx.inc
       wid.caretIdx = clamp(wid.caretIdx, 0, wid.text.len)    
 
 template setKeyAsHandled(key: Key) = 
+  ## call this on key when the key was handled by a textbox
   if key != Key.Mouse:
     key = None 
-
 
 when isMainModule:
   import strformat
@@ -396,11 +368,11 @@ when isMainModule:
   var infoBoxMouse = newInfoBox("",0 ,0, terminalWidth())
 
   # Radio buttons
-  var chkRadA = newRadioBox("OptionA", 56, 4)
-  var chkRadB = newRadioBox("OptionB", 56, 5)
-  var chkRadC = newRadioBox("OptionC", 56, 6)
+  var chkRadA = newRadioBox("Radio Box Option A", 56, 4)
+  var chkRadB = newRadioBox("Radio Box Option B", 56, 5)
+  var chkRadC = newRadioBox("Radio Box Option C", 56, 6)
 
-  var chooseBox = newChooseBox(@[" ", "#", "@", "§", "aaa", "asdf", "asjdfkl"], 70, 3, 10, 5, choosenidx=2)
+  var chooseBox = newChooseBox(@[" ", "#", "@", "§"], 81, 3, 10, 5, choosenidx=2)
 
   var textBox = newTextBox("foo", 38, 13, 42, placeholder = "Some placeholder")
 
@@ -411,12 +383,15 @@ when isMainModule:
     if textBox.focus:
       if tb.handleKey(textBox, key):
         tb.write(0,2, bgYellow, fgBlue, textBox.text)
+        # if textBox.text.len > 0:
+        chooseBox.add(textBox.text)
+        # chooseBox.grow() # if grow now called here box gets resized after focus loss!
       key.setKeyAsHandled() # If the key input was handled by the textbox
     
     case key
     of Key.None: discard
     of Key.Escape, Key.Q: exitProc()
-    of Key.Mouse:
+    of Key.Mouse: #, Key.None: # TODO Key.None here does not work with checkbox
       let coords = getMouse()
       infoBoxMouse.text = $coords
       var ev: Events
