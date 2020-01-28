@@ -339,7 +339,7 @@ proc handleKey(tb: var TerminalBuffer, wid: var TextBox, key: Key): bool {.disca
 
   case key
   of Enter:
-    wid.focus = false
+    # wid.focus = false
     return true
   of Escape:
     wid.focus = false
@@ -361,13 +361,12 @@ proc handleKey(tb: var TerminalBuffer, wid: var TextBox, key: Key): bool {.disca
   else:    
 
     var ch = ""
-    if ($key).startsWith("Shift"):
-      ch = ($key)[5..^1].toUpper
-    else:
-      ch = ($key).toLower
+    # if ($key).startsWith("Shift"):
+    #   ch = ($key)[5..^1].toUpper
+    # else:
+    #   ch = ($key).toLower
     
     ch = $key.char
-    # echo key.int.char
 
     case key
     of Space: ch = " "
@@ -378,7 +377,6 @@ proc handleKey(tb: var TerminalBuffer, wid: var TextBox, key: Key): bool {.disca
       wid.text.insert(ch, wid.caretIdx)
       wid.caretIdx.inc
       wid.caretIdx = clamp(wid.caretIdx, 0, wid.text.len)    
-      # wid.caretIdx = wid.text.len-1
 
 when isMainModule:
   import strformat
@@ -469,7 +467,6 @@ when isMainModule:
           tb.write coords.x, coords.y, fgGreen, "⌀"
         
     else:
-      # echo key
       infoBox.text = $key
       discard
     
