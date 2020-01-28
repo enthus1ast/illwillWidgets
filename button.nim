@@ -21,35 +21,39 @@ type
   # ButtonCallback = proc (tr: var TerminalBuffer)
     x: int
     y: int
+    color: ForegroundColor
+    bgcolor: BackgroundColor
+    # enabled: bool 
   Button = object of Widget
     text: string
     pressed: bool
     boxBuffer: BoxBuffer
-    color: ForegroundColor
     w: int
     h: int
     # cb: ButtonCallback 
   Checkbox = object of Widget
     text: string
     checked: bool
-    color: ForegroundColor
     textChecked: string
     textUnchecked: string
   # RadioButton = object of Checkbox
   #   linked: set[RadioButton]
   InfoBox = object of Widget
     text: string
-    color: ForegroundColor
-    bgcolor: BackgroundColor
     w: int
   ChooseBox = object of Widget
-    color: ForegroundColor
-    bgcolor: BackgroundColor
     bgcolorChoosen: BackgroundColor
     choosenidx: int
     w: int
     h: int
     elements: seq[string]
+  TextBox = object of Widget
+    text: string
+    placeholder: string
+    focus: bool
+    w: int
+    caretIdx: int
+
 
 # proc newRadioButtinGroup(radioButtons: seq[RadioButton]) =
 #   for radioButton in radioButton:
@@ -86,6 +90,7 @@ proc newInfoBox(text: string, x, y: int, w = 10, color = fgBlack, bgcolor = bgWh
   )
 
 proc render(tb: var TerminalBuffer, wid: InfoBox) =
+  # TODO save old text to only overwrite the len of the old text
   let oldFg = tb.getForegroundColor
   let oldBg = tb.getBackgroundColor
   tb.setForegroundColor wid.color
@@ -98,6 +103,7 @@ proc inside(wid: InfoBox, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.w) and (mi.y == wid.y)
 
 proc dispatch(tb: var TerminalBuffer, wid: InfoBox, mi: MouseInfo): Events {.discardable.} = 
+  # if not enabled: return
   if wid.inside(mi) and mi.action == Pressed: result.incl MouseDown
   if wid.inside(mi) and mi.action == Released: result.incl MouseUp
 
@@ -129,6 +135,7 @@ proc inside(wid: Checkbox, mi: MouseInfo): bool =
 proc dispatch(tr: var TerminalBuffer, wid: var Checkbox, mi: MouseInfo): Events {.discardable.} = 
   ## if the mouse clicks this button 
   # result = false
+  # if not enabled: return
   if wid.inside(mi) and mi.action == Pressed:
     result.incl MouseDown
   if wid.inside(mi) and mi.action == Released:
@@ -184,6 +191,7 @@ proc inside(wid: Button, mi: MouseInfo): bool =
 
 proc dispatch(tr: var TerminalBuffer, wid: var Button, mi: MouseInfo): Events {.discardable.} = 
   ## if the mouse clicks this button 
+  # if not enabled: return
   result = {}
   if not wid.inside(mi): 
     wid.pressed = false
@@ -221,6 +229,7 @@ template setWidgetColor(tb: var TerminalBuffer, wid: typed) =
 
 proc render(tb: var TerminalBuffer, wid: ChooseBox) =
   let oldFg = tb.getForegroundColor
+  let oldBg = tb.getBackgroundColor
   tb.setForegroundColor wid.color
   tb.fill(wid.x, wid.y, wid.x+wid.w, wid.y+wid.h)
   for idx, elemRaw in wid.elements:
@@ -241,6 +250,7 @@ proc render(tb: var TerminalBuffer, wid: ChooseBox) =
     # doubleStyle=wid.pressed, 
   )
   tb.setForegroundColor oldFg
+  tb.setBackgroundColor oldBg
 
 proc inside(wid: ChooseBox, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.w) and (mi.y in wid.y .. wid.y+wid.h)
@@ -258,6 +268,109 @@ proc dispatch(tr: var TerminalBuffer, wid: var ChooseBox, mi: MouseInfo): Events
     wid.choosenidx = clamp( (mi.y - wid.y)-1 , 0, wid.elements.len-1)
     result.incl MouseUp  
 
+#########################################################################################################
+# TextBox
+#########################################################################################################
+
+proc newTextBox(text: string, x, y: int, w = 10, color = fgBlack, bgcolor = bgCyan, placeholder = ""): TextBox =
+  ## TODO a good textbox is COMPLICATED, this is a VERY basic one!! PR's welcome ;)
+  result = TextBox(
+    text: text.alignLeft(w, ' '),
+    x: x,
+    y: y,
+    w: w,
+    color: color,
+    bgcolor: bgcolor,
+    placeholder: placeholder
+    # caretChar: 
+  )
+
+proc render(tb: var TerminalBuffer, wid: TextBox) =
+  # TODO save old text to only overwrite the len of the old text
+  let oldFg = tb.getForegroundColor
+  let oldBg = tb.getBackgroundColor
+  tb.setForegroundColor wid.color
+  tb.setBackgroundColor wid.bgcolor
+  # if wid.text == "":
+  #   tb.write(wid.x, wid.y, styleDim, wid.placeholder.alignLeft(wid.w))
+  # else:
+  #   tb.write(wid.x, wid.y, wid.text.alignLeft(wid.w))
+  tb.write(wid.x, wid.y, 
+    wid.text[0..wid.caretIdx-1], 
+    styleReverse, $wid.text[wid.caretIdx],
+    
+    resetStyle,
+    wid.color, wid.bgcolor,
+    wid.text[wid.caretIdx+1..^1], 
+    #" ".repeat( wid.w - wid.text.len ),
+    resetStyle
+    )
+  
+  tb.setForegroundColor oldFg
+  tb.setBackgroundColor oldBg
+
+proc inside(wid: TextBox, mi: MouseInfo): bool =
+  return (mi.x in wid.x .. wid.x+wid.w) and (mi.y == wid.y)
+
+proc dispatch(tb: var TerminalBuffer, wid: var TextBox, mi: MouseInfo): Events {.discardable.} = 
+  # if not enabled: return
+  if wid.inside(mi) and mi.action == Pressed: 
+    result.incl MouseDown
+  if wid.inside(mi) and mi.action == Released: 
+    wid.focus = true
+    result.incl MouseUp
+  if not wid.inside(mi) and mi.action == Released:
+    wid.focus = false
+
+proc handleKey(tb: var TerminalBuffer, wid: var TextBox, key: Key) = 
+  
+  template incCaret() =
+    wid.caretIdx.inc
+    wid.caretIdx = clamp(wid.caretIdx, 0, wid.text.len-1)
+  template decCaret() =
+    wid.caretIdx.dec
+    wid.caretIdx = clamp(wid.caretIdx, 0, wid.text.len-1)
+
+  if key == Mouse: return
+  if key == None: return
+
+  case key
+  of Escape:
+    wid.focus = false
+  of End:
+    wid.caretIdx = wid.text.len-1
+  of Home:
+    wid.caretIdx = 0
+  of Backspace:
+    try:
+      delete(wid.text, wid.caretIdx-1, wid.caretIdx-1)
+      decCaret
+    except:
+      discard
+  of Right:
+    incCaret
+  of Left:
+    decCaret
+  else:    
+
+    var ch = ""
+    if ($key).startsWith("Shift"):
+      ch = ($key)[5..^1].toUpper
+    else:
+      ch = ($key).toLower
+    
+    ch = $key.char
+    # echo key.int.char
+
+    case key
+    of Space: ch = " "
+    else:
+      discard
+
+    wid.text.insert(ch, wid.caretIdx)
+    wid.caretIdx.inc
+    wid.caretIdx = clamp(wid.caretIdx, 0, wid.text.len-1)    
+    # wid.caretIdx = wid.text.len-1
 
 when isMainModule:
   import strformat
@@ -282,11 +395,18 @@ when isMainModule:
 
   var chooseBox = newChooseBox(@[" ", "#", "@", "§"], 70, 3, 10, 5, choosenidx=2)
 
+  var textBox = newTextBox("foo", 38, 13, 42, placeholder = "Some placeholder")
+
   while true:
     var key = getKey()
+
+    # Must be done for every textbox
+    if textBox.focus:
+      tb.handleKey(textBox, key)
+
     case key
     of Key.None: discard
-    of Key.Escape, Key.Q: exitProc()
+    # of Key.Escape, Key.Q: exitProc()
     of Key.Mouse:
       let coords = getMouse()
       infoBoxMouse.text = $coords
@@ -329,6 +449,9 @@ when isMainModule:
       if ev.contains MouseUp:
         infoBox.text = fmt"Choose box choosenidx: {chooseBox.choosenidx} -> {chooseBox.choosenElement()}"
       
+
+      ## Textbox is special!
+      ev = tb.dispatch(textBox, coords)
   
       if chkDraw.checked:
         if coords.action == MouseButtonAction.Pressed:
@@ -337,7 +460,8 @@ when isMainModule:
           tb.write coords.x, coords.y, fgGreen, "⌀"
         
     else:
-      echo key
+      # echo key
+      infoBox.text = $key
       discard
     
     tb.render(btnClear)
@@ -359,6 +483,8 @@ when isMainModule:
     tb.render(infoBoxMouse)
 
     tb.render(chooseBox)
+
+    tb.render(textBox)
 
     tb.display()
     sleep(20)
