@@ -392,6 +392,13 @@ when isMainModule:
     var client = newHttpClient()
     infoBox.text = client.getContent("http://ip.code0.xyz").strip()
 
+  proc funDraw(tb: var TerminalBuffer, coords: MouseInfo) = 
+    if coords.action == MouseButtonAction.Pressed:
+      tb.write coords.x, coords.y, fgRed, "♥"
+    else:
+      tb.write coords.x, coords.y, fgGreen, "⌀"
+
+
   while true:
     var key = getKey()
 
@@ -463,10 +470,8 @@ when isMainModule:
   
       # We enable / disable drawing based on checkbox value
       if chkDraw.checked:
-        if coords.action == MouseButtonAction.Pressed:
-          tb.write coords.x, coords.y, fgRed, "♥"
-        else:
-          tb.write coords.x, coords.y, fgGreen, "⌀"
+        tb.funDraw(coords)
+
     else:
       infoBox.text = $key
       discard
@@ -494,6 +499,6 @@ when isMainModule:
     
     tb.display()
 
-    poll(30) # for the async demo code (keep poll low)
-    # sleep(50) # maybe not needet when calling poll above.
+    poll(30) # for the async demo code (keep poll low), use sleep below for non async.
+    # sleep(50) # when no async code used, just call sleep(50)
 # 
