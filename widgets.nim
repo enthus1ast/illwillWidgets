@@ -1,20 +1,8 @@
 import os, strutils
 import illwill
-
-proc exitProc() {.noconv.} =
-  illwillDeinit()
-  showCursor()
-  quit(0)
-
-illwillInit(fullscreen=true, mouse=true)
-setControlCHook(exitProc)
-hideCursor()
-
-var tb = newTerminalBuffer(terminalWidth(), terminalHeight())
-
 import macros
 
-macro preserveColor(pr: untyped): typed =
+macro preserveColor*(pr: untyped): typed =
   result = newProc()
   let oldbody = pr.body
   result.name = pr.name
@@ -212,6 +200,8 @@ proc dispatch(tr: var TerminalBuffer, wid: var Button, mi: MouseInfo): Events {.
 #########################################################################################################
 # ChooseBox
 #########################################################################################################
+proc grow(wid: var ChooseBox) =
+  if wid.elements.len > wid.h: wid.h = wid.elements.len # TODO allowedToGrow
 
 proc newChooseBox(elements: seq[string], x, y, w, h: int, color = fgBlue, label = "", choosenidx = 0): ChooseBox =
   result = ChooseBox(
@@ -224,6 +214,7 @@ proc newChooseBox(elements: seq[string], x, y, w, h: int, color = fgBlue, label 
     h: h,
     color: color,
   )
+  result.grow()
 
 proc choosenElement(wid: ChooseBox): string =
   return wid.elements[wid.choosenidx]
@@ -258,6 +249,7 @@ proc inside(wid: ChooseBox, mi: MouseInfo): bool =
 proc dispatch(tr: var TerminalBuffer, wid: var ChooseBox, mi: MouseInfo): Events {.discardable.} = 
   ## if the mouse clicks this button 
   result = {}
+  wid.grow()
   if not wid.inside(mi): 
     # wid.pressed = false
     return
@@ -287,19 +279,14 @@ proc newTextBox(text: string, x, y: int, w = 10, color = fgBlack, bgcolor = bgCy
 
 proc render(tb: var TerminalBuffer, wid: TextBox) {.preserveColor.} =
   # TODO save old text to only overwrite the len of the old text
-  # if wid.text == "":
-  #   tb.write(wid.x, wid.y, styleDim, wid.placeholder.alignLeft(wid.w))
-  # else:
-  #   tb.write(wid.x, wid.y, wid.text.alignLeft(wid.w))
   tb.write(wid.x, wid.y, repeat(" ", wid.w))
   if wid.caretIdx == wid.text.len():
-    # discard
-    tb.write(wid.x, wid.y, wid.text) #, styleReverse, " ", resetStyle)
+    tb.write(wid.x, wid.y, wid.text)
     if wid.text.len < wid.w:
       tb.write(wid.x + wid.caretIdx, wid.y, styleReverse, " ", resetStyle)
     # tb.write()
   else:
-    tb.write(wid.x, wid.y, 
+    tb.write(wid.x, wid.y,
       wid.text[0..wid.caretIdx-1], 
       styleReverse, $wid.text[wid.caretIdx],
       
@@ -339,13 +326,12 @@ proc handleKey(tb: var TerminalBuffer, wid: var TextBox, key: Key): bool {.disca
 
   case key
   of Enter:
-    # wid.focus = false
     return true
   of Escape:
     wid.focus = false
     return
   of End:
-    wid.caretIdx = wid.text.len-1
+    wid.caretIdx = wid.text.len
   of Home:
     wid.caretIdx = 0
   of Backspace:
@@ -365,7 +351,6 @@ proc handleKey(tb: var TerminalBuffer, wid: var TextBox, key: Key): bool {.disca
     #   ch = ($key)[5..^1].toUpper
     # else:
     #   ch = ($key).toLower
-    
     ch = $key.char
 
     case key
@@ -378,8 +363,24 @@ proc handleKey(tb: var TerminalBuffer, wid: var TextBox, key: Key): bool {.disca
       wid.caretIdx.inc
       wid.caretIdx = clamp(wid.caretIdx, 0, wid.text.len)    
 
+template setKeyAsHandled(key: Key) = 
+  if key != Key.Mouse:
+    key = None 
+
+
 when isMainModule:
   import strformat
+
+  proc exitProc() {.noconv.} =
+    illwillDeinit()
+    showCursor()
+    quit(0)
+
+  illwillInit(fullscreen=true, mouse=true)
+  setControlCHook(exitProc)
+  hideCursor()
+
+  var tb = newTerminalBuffer(terminalWidth(), terminalHeight())
 
   var btnTest = newButton("fill", 38, 3, 15, 2)
   var btnClear = newButton("clear", 38, 6, 15, 2)
@@ -399,7 +400,7 @@ when isMainModule:
   var chkRadB = newRadioBox("OptionB", 56, 5)
   var chkRadC = newRadioBox("OptionC", 56, 6)
 
-  var chooseBox = newChooseBox(@[" ", "#", "@", "§"], 70, 3, 10, 5, choosenidx=2)
+  var chooseBox = newChooseBox(@[" ", "#", "@", "§", "aaa", "asdf", "asjdfkl"], 70, 3, 10, 5, choosenidx=2)
 
   var textBox = newTextBox("foo", 38, 13, 42, placeholder = "Some placeholder")
 
@@ -410,10 +411,11 @@ when isMainModule:
     if textBox.focus:
       if tb.handleKey(textBox, key):
         tb.write(0,2, bgYellow, fgBlue, textBox.text)
-
+      key.setKeyAsHandled() # If the key input was handled by the textbox
+    
     case key
     of Key.None: discard
-    # of Key.Escape, Key.Q: exitProc()
+    of Key.Escape, Key.Q: exitProc()
     of Key.Mouse:
       let coords = getMouse()
       infoBoxMouse.text = $coords
@@ -438,8 +440,10 @@ when isMainModule:
         if chkTest2.checked:
           infoBox.text = "red"
           tb.setForegroundColor fgRed
+          chkTest2.color = fgRed
         else:
           infoBox.text = "green"
+          chkTest2.color = fgGreen
           tb.setForegroundColor fgGreen
 
       ev = tb.dispatch(chkDraw, coords)
@@ -456,7 +460,6 @@ when isMainModule:
       if ev.contains MouseUp:
         infoBox.text = fmt"Choose box choosenidx: {chooseBox.choosenidx} -> {chooseBox.choosenElement()}"
       
-
       ## Textbox is special! (see above for `handleKey`)
       ev = tb.dispatch(textBox, coords)
   
@@ -480,17 +483,17 @@ when isMainModule:
     tb.render(chkRadB)
     tb.render(chkRadC)
 
-    # Update the info box to always be on the bottom
+    # Update the info box position to always be on the bottom
     infoBox.w = terminalWidth()
     infoBox.y = terminalHeight()-1
     tb.render(infoBox)
     
-    # No need to update
+    # No need to update position (is at the top)
     tb.render(infoBoxMouse)
 
     tb.render(chooseBox)
 
     tb.render(textBox)
-
+    
     tb.display()
     sleep(20)
