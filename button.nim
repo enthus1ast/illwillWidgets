@@ -12,6 +12,22 @@ hideCursor()
 
 var tb = newTerminalBuffer(terminalWidth(), terminalHeight())
 
+import macros
+
+macro preserveColor(pr: untyped): typed =
+  result = newProc()
+  let oldbody = pr.body
+  result.name = pr.name
+  result.params = pr.params
+  result.body = quote do:
+    let oldFg = tb.getForegroundColor
+    let oldBg = tb.getBackgroundColor
+    tb.setForegroundColor wid.color
+    tb.setBackgroundColor wid.bgcolor
+    `oldbody`
+    tb.setForegroundColor oldFg
+    tb.setBackgroundColor oldBg
+  echo repr result
 
 type
   Event = enum
@@ -54,6 +70,7 @@ type
     w: int
     caretIdx: int
 
+# macro preserveColor()
 
 # proc newRadioButtinGroup(radioButtons: seq[RadioButton]) =
 #   for radioButton in radioButton:
@@ -89,15 +106,15 @@ proc newInfoBox(text: string, x, y: int, w = 10, color = fgBlack, bgcolor = bgWh
     bgcolor: bgcolor,
   )
 
-proc render(tb: var TerminalBuffer, wid: InfoBox) =
+# let oldFg = tb.getForegroundColor
+# let oldBg = tb.getBackgroundColor
+# tb.setForegroundColor wid.color
+# tb.setBackgroundColor wid.bgcolor
+proc render(tb: var TerminalBuffer, wid: InfoBox) {.preserveColor.} =
   # TODO save old text to only overwrite the len of the old text
-  let oldFg = tb.getForegroundColor
-  let oldBg = tb.getBackgroundColor
-  tb.setForegroundColor wid.color
-  tb.setBackgroundColor wid.bgcolor
   tb.write(wid.x, wid.y, wid.text.alignLeft(wid.w))
-  tb.setForegroundColor oldFg
-  tb.setBackgroundColor oldBg
+# tb.setForegroundColor oldFg
+# tb.setBackgroundColor oldBg
 
 proc inside(wid: InfoBox, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.w) and (mi.y == wid.y)
@@ -124,10 +141,13 @@ proc newCheckbox(text: string, x, y: int, color = fgBlue): Checkbox =
 
 proc render(tb: var TerminalBuffer, wid: Checkbox) =
   let oldFg = tb.getForegroundColor
+  let oldBg = tb.getBackgroundColor
   tb.setForegroundColor wid.color
+  tb.setBackgroundColor wid.bgcolor
   let check = if wid.checked: wid.textChecked else: wid.textUnchecked
   tb.write(wid.x, wid.y, check & wid.text)
   tb.setForegroundColor oldFg
+  tb.setBackgroundColor oldBg
 
 proc inside(wid: Checkbox, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.text.len + 3) and (mi.y == wid.y)
@@ -170,7 +190,9 @@ proc newButton(text: string, x, y, w, h: int, color = fgBlue): Button = #, cb = 
 
 proc render(tb: var TerminalBuffer, wid: Button) =
   let oldFg = tb.getForegroundColor
+  let oldBg = tb.getBackgroundColor
   tb.setForegroundColor wid.color
+  tb.setBackgroundColor wid.bgcolor
   tb.fill(wid.x, wid.y, wid.x+wid.w, wid.y+wid.h)
   tb.write(
     wid.x+1 + wid.w div 2 - wid.text.len div 2 , 
@@ -185,6 +207,7 @@ proc render(tb: var TerminalBuffer, wid: Button) =
     doubleStyle=wid.pressed, 
   )
   tb.setForegroundColor oldFg
+  tb.setBackgroundColor oldBg
 
 proc inside(wid: Button, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.w) and (mi.y in wid.y .. wid.y+wid.h)
@@ -208,7 +231,7 @@ proc dispatch(tr: var TerminalBuffer, wid: var Button, mi: MouseInfo): Events {.
 # ChooseBox
 #########################################################################################################
 
-proc newChooseBox(elements: seq[string], x, y, w, h: int, color = fgBlue, label = "", choosenidx = 0): ChooseBox = #, cb = ButtonCallback): Button = 
+proc newChooseBox(elements: seq[string], x, y, w, h: int, color = fgBlue, label = "", choosenidx = 0): ChooseBox =
   result = ChooseBox(
     # label: label,
     elements: elements,
@@ -275,7 +298,7 @@ proc dispatch(tr: var TerminalBuffer, wid: var ChooseBox, mi: MouseInfo): Events
 proc newTextBox(text: string, x, y: int, w = 10, color = fgBlack, bgcolor = bgCyan, placeholder = ""): TextBox =
   ## TODO a good textbox is COMPLICATED, this is a VERY basic one!! PR's welcome ;)
   result = TextBox(
-    text: text.alignLeft(w, ' '),
+    text: text, #text.alignLeft(w, ' '),
     x: x,
     y: y,
     w: w,
@@ -295,16 +318,24 @@ proc render(tb: var TerminalBuffer, wid: TextBox) =
   #   tb.write(wid.x, wid.y, styleDim, wid.placeholder.alignLeft(wid.w))
   # else:
   #   tb.write(wid.x, wid.y, wid.text.alignLeft(wid.w))
-  tb.write(wid.x, wid.y, 
-    wid.text[0..wid.caretIdx-1], 
-    styleReverse, $wid.text[wid.caretIdx],
-    
-    resetStyle,
-    wid.color, wid.bgcolor,
-    wid.text[wid.caretIdx+1..^1], 
-    #" ".repeat( wid.w - wid.text.len ),
-    resetStyle
-    )
+  tb.write(wid.x, wid.y, repeat(" ", wid.w))
+  if wid.caretIdx == wid.text.len():
+    # discard
+    tb.write(wid.x, wid.y, wid.text) #, styleReverse, " ", resetStyle)
+    if wid.text.len < wid.w:
+      tb.write(wid.x + wid.caretIdx, wid.y, styleReverse, " ", resetStyle)
+    # tb.write()
+  else:
+    tb.write(wid.x, wid.y, 
+      wid.text[0..wid.caretIdx-1], 
+      styleReverse, $wid.text[wid.caretIdx],
+      
+      resetStyle,
+      wid.color, wid.bgcolor,
+      wid.text[wid.caretIdx+1..^1], 
+      #" ".repeat( wid.w - wid.text.len ),
+      resetStyle
+      )
   
   tb.setForegroundColor oldFg
   tb.setBackgroundColor oldBg
@@ -322,21 +353,27 @@ proc dispatch(tb: var TerminalBuffer, wid: var TextBox, mi: MouseInfo): Events {
   if not wid.inside(mi) and mi.action == Released:
     wid.focus = false
 
-proc handleKey(tb: var TerminalBuffer, wid: var TextBox, key: Key) = 
-  
+proc handleKey(tb: var TerminalBuffer, wid: var TextBox, key: Key): bool {.discardable.} = 
+  ## if this function return "true" the textbox lost focus by enter
+  result = false
+
   template incCaret() =
     wid.caretIdx.inc
-    wid.caretIdx = clamp(wid.caretIdx, 0, wid.text.len-1)
+    wid.caretIdx = clamp(wid.caretIdx, 0, wid.text.len)
   template decCaret() =
     wid.caretIdx.dec
-    wid.caretIdx = clamp(wid.caretIdx, 0, wid.text.len-1)
+    wid.caretIdx = clamp(wid.caretIdx, 0, wid.text.len)
 
-  if key == Mouse: return
-  if key == None: return
+  if key == Mouse: return false
+  if key == None: return false
 
   case key
+  of Enter:
+    wid.focus = false
+    return true
   of Escape:
     wid.focus = false
+    return
   of End:
     wid.caretIdx = wid.text.len-1
   of Home:
@@ -367,10 +404,11 @@ proc handleKey(tb: var TerminalBuffer, wid: var TextBox, key: Key) =
     else:
       discard
 
-    wid.text.insert(ch, wid.caretIdx)
-    wid.caretIdx.inc
-    wid.caretIdx = clamp(wid.caretIdx, 0, wid.text.len-1)    
-    # wid.caretIdx = wid.text.len-1
+    if wid.text.len < wid.w:
+      wid.text.insert(ch, wid.caretIdx)
+      wid.caretIdx.inc
+      wid.caretIdx = clamp(wid.caretIdx, 0, wid.text.len)    
+      # wid.caretIdx = wid.text.len-1
 
 when isMainModule:
   import strformat
@@ -402,7 +440,8 @@ when isMainModule:
 
     # Must be done for every textbox
     if textBox.focus:
-      tb.handleKey(textBox, key)
+      if tb.handleKey(textBox, key):
+        tb.write(0,2, bgYellow, fgBlue, textBox.text)
 
     case key
     of Key.None: discard
@@ -450,7 +489,7 @@ when isMainModule:
         infoBox.text = fmt"Choose box choosenidx: {chooseBox.choosenidx} -> {chooseBox.choosenElement()}"
       
 
-      ## Textbox is special!
+      ## Textbox is special! (see above for `handleKey`)
       ev = tb.dispatch(textBox, coords)
   
       if chkDraw.checked:
