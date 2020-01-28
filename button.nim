@@ -27,7 +27,7 @@ macro preserveColor(pr: untyped): typed =
     `oldbody`
     tb.setForegroundColor oldFg
     tb.setBackgroundColor oldBg
-  echo repr result
+  # echo repr result
 
 type
   Event = enum
@@ -106,15 +106,9 @@ proc newInfoBox(text: string, x, y: int, w = 10, color = fgBlack, bgcolor = bgWh
     bgcolor: bgcolor,
   )
 
-# let oldFg = tb.getForegroundColor
-# let oldBg = tb.getBackgroundColor
-# tb.setForegroundColor wid.color
-# tb.setBackgroundColor wid.bgcolor
 proc render(tb: var TerminalBuffer, wid: InfoBox) {.preserveColor.} =
   # TODO save old text to only overwrite the len of the old text
   tb.write(wid.x, wid.y, wid.text.alignLeft(wid.w))
-# tb.setForegroundColor oldFg
-# tb.setBackgroundColor oldBg
 
 proc inside(wid: InfoBox, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.w) and (mi.y == wid.y)
@@ -139,15 +133,9 @@ proc newCheckbox(text: string, x, y: int, color = fgBlue): Checkbox =
     textUnchecked: "[ ] "
   )
 
-proc render(tb: var TerminalBuffer, wid: Checkbox) =
-  let oldFg = tb.getForegroundColor
-  let oldBg = tb.getBackgroundColor
-  tb.setForegroundColor wid.color
-  tb.setBackgroundColor wid.bgcolor
+proc render(tb: var TerminalBuffer, wid: Checkbox) {.preserveColor.} =
   let check = if wid.checked: wid.textChecked else: wid.textUnchecked
   tb.write(wid.x, wid.y, check & wid.text)
-  tb.setForegroundColor oldFg
-  tb.setBackgroundColor oldBg
 
 proc inside(wid: Checkbox, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.text.len + 3) and (mi.y == wid.y)
@@ -188,11 +176,7 @@ proc newButton(text: string, x, y, w, h: int, color = fgBlue): Button = #, cb = 
     color: color,
   )
 
-proc render(tb: var TerminalBuffer, wid: Button) =
-  let oldFg = tb.getForegroundColor
-  let oldBg = tb.getBackgroundColor
-  tb.setForegroundColor wid.color
-  tb.setBackgroundColor wid.bgcolor
+proc render(tb: var TerminalBuffer, wid: Button) {.preserveColor.} =
   tb.fill(wid.x, wid.y, wid.x+wid.w, wid.y+wid.h)
   tb.write(
     wid.x+1 + wid.w div 2 - wid.text.len div 2 , 
@@ -206,8 +190,6 @@ proc render(tb: var TerminalBuffer, wid: Button) =
     wid.y + wid.h, 
     doubleStyle=wid.pressed, 
   )
-  tb.setForegroundColor oldFg
-  tb.setBackgroundColor oldBg
 
 proc inside(wid: Button, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.w) and (mi.y in wid.y .. wid.y+wid.h)
@@ -250,10 +232,7 @@ template setWidgetColor(tb: var TerminalBuffer, wid: typed) =
   tb.setForegroundColor wid.color
   tb.setBackgroundColor wid.bgcolor
 
-proc render(tb: var TerminalBuffer, wid: ChooseBox) =
-  let oldFg = tb.getForegroundColor
-  let oldBg = tb.getBackgroundColor
-  tb.setForegroundColor wid.color
+proc render(tb: var TerminalBuffer, wid: ChooseBox) {.preserveColor.} =
   tb.fill(wid.x, wid.y, wid.x+wid.w, wid.y+wid.h)
   for idx, elemRaw in wid.elements:
     let elem = elemRaw.alignLeft(wid.w)
@@ -272,8 +251,6 @@ proc render(tb: var TerminalBuffer, wid: ChooseBox) =
     wid.y + wid.h, 
     # doubleStyle=wid.pressed, 
   )
-  tb.setForegroundColor oldFg
-  tb.setBackgroundColor oldBg
 
 proc inside(wid: ChooseBox, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.w) and (mi.y in wid.y .. wid.y+wid.h)
@@ -308,12 +285,8 @@ proc newTextBox(text: string, x, y: int, w = 10, color = fgBlack, bgcolor = bgCy
     # caretChar: 
   )
 
-proc render(tb: var TerminalBuffer, wid: TextBox) =
+proc render(tb: var TerminalBuffer, wid: TextBox) {.preserveColor.} =
   # TODO save old text to only overwrite the len of the old text
-  let oldFg = tb.getForegroundColor
-  let oldBg = tb.getBackgroundColor
-  tb.setForegroundColor wid.color
-  tb.setBackgroundColor wid.bgcolor
   # if wid.text == "":
   #   tb.write(wid.x, wid.y, styleDim, wid.placeholder.alignLeft(wid.w))
   # else:
@@ -336,9 +309,6 @@ proc render(tb: var TerminalBuffer, wid: TextBox) =
       #" ".repeat( wid.w - wid.text.len ),
       resetStyle
       )
-  
-  tb.setForegroundColor oldFg
-  tb.setBackgroundColor oldBg
 
 proc inside(wid: TextBox, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.w) and (mi.y == wid.y)
