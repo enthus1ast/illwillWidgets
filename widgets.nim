@@ -37,8 +37,8 @@ type
     checked: bool
     textChecked: string
     textUnchecked: string
-  # RadioButton = object of Checkbox
-  #   linked: set[RadioButton]
+  RadioBoxGroup = object of Widget
+    radioButtons: seq[Checkbox]
   InfoBox = object of Widget
     text: string
     w: int
@@ -55,13 +55,6 @@ type
     w: int
     caretIdx: int
 
-# proc newRadioButtinGroup(radioButtons: seq[RadioButton]) =
-#   for radioButton in radioButton:
-#     radioButton.linked = radioButtons
-  # RadioButton = object of Widget
-  #   text: string
-  #   checked: bool
-  
   # ComboBox[Key] = object of Widget
   #   open: bool
   #   current: Key
@@ -69,10 +62,10 @@ type
   #   w: int
   #   color: ForegroundColor
 
+# Cannot do this atm because of layering
 # proc newComboBox[Key](x,y: int, w = 10): ComboBox =
 #   result = ComboBox[Key](
 #     open: false,
-
 #   )
 
 #########################################################################################################
@@ -136,7 +129,30 @@ proc newRadioBox(text: string, x, y: int, color = fgBlue): Checkbox =
   result.textChecked = "(X) "
   result.textUnchecked = "( ) "
 
-# proc
+proc newRadioBoxGroup(radioButtons: seq[Checkbox]): RadioBoxGroup =
+  result = RadioBoxGroup(
+    radioButtons: radioButtons
+  )
+
+proc render(tb: var TerminalBuffer, wid: RadioBoxGroup) {.preserveColor.} =
+  for radioButton in wid.radioButtons:
+    tb.render(radioButton)
+
+proc dispatch(tb: var TerminalBuffer, wid: var RadioBoxGroup, mi: MouseInfo): Events {.discardable.} = 
+  var insideSome = false
+  for radioButton in wid.radioButtons.mitems:
+    if radioButton.inside(mi): insideSome = true
+  if (not insideSome) or (mi.action != Released): return
+  for radioButton in wid.radioButtons.mitems:
+    radioButton.checked = false
+  for radioButton in wid.radioButtons.mitems:
+    let ev = tb.dispatch(radioButton, mi)
+    result.incl ev
+
+proc element(wid: RadioBoxGroup): Checkbox =
+  for radioButton in wid.radioButtons:
+    if radioButton.checked:
+      return radioButton
 
 #########################################################################################################
 # Button
@@ -373,8 +389,12 @@ when isMainModule:
 
   # Radio buttons
   var chkRadA = newRadioBox("Radio Box Option A", 56, 4)
+  chkRadA.checked = true
   var chkRadB = newRadioBox("Radio Box Option B", 56, 5)
   var chkRadC = newRadioBox("Radio Box Option C", 56, 6)
+  var radioBoxGroup = newRadioBoxGroup(@[
+    chkRadA, chkRadB, chkRadC
+  ])
 
   var chooseBox = newChooseBox(@[" ", "#", "@", "§"], 81, 3, 10, 5, choosenidx=2)
 
@@ -423,7 +443,6 @@ when isMainModule:
       if ev.contains MouseDown:
         infoBox.text = "http call to http://ip.code0.xyz to get your public ip!"
 
-
       ev = tb.dispatch(btnClear, coords)
       if ev.contains MouseUp:
         tb.clear()
@@ -468,6 +487,10 @@ when isMainModule:
       # Textbox is special! (see above for `handleKey`)
       ev = tb.dispatch(textBox, coords)
   
+      ev = tb.dispatch(radioBoxGroup, coords)
+      if ev.contains MouseUp:
+        infoBox.text = fmt"Radio button with content '{radioBoxGroup.element().text}' selected."
+
       # We enable / disable drawing based on checkbox value
       if chkDraw.checked:
         tb.funDraw(coords)
@@ -483,9 +506,10 @@ when isMainModule:
     tb.render(chkTest2)
     tb.render(chkDraw)
 
-    tb.render(chkRadA)
-    tb.render(chkRadB)
-    tb.render(chkRadC)
+    # tb.render(chkRadA)
+    # tb.render(chkRadB)
+    # tb.render(chkRadC)
+    tb.render(radioBoxGroup)
 
     # Update the info box position to always be on the bottom
     infoBox.w = terminalWidth()
