@@ -342,6 +342,7 @@ template setKeyAsHandled(key: Key) =
 
 when isMainModule:
   import strformat
+  import asyncdispatch, httpclient# for async demonstration
 
   proc exitProc() {.noconv.} =
     illwillDeinit()
@@ -354,6 +355,8 @@ when isMainModule:
 
   var tb = newTerminalBuffer(terminalWidth(), terminalHeight())
 
+  
+  var btnAsyncHttp = newButton("async http", 21, 3, 15, 2)
   var btnTest = newButton("fill", 38, 3, 15, 2)
   var btnClear = newButton("clear", 38, 6, 15, 2)
   var chkTest = newCheckbox("Some content", 38, 9)
@@ -366,6 +369,7 @@ when isMainModule:
   # Info box
   var infoBox = newInfoBox("",0 ,0, terminalWidth())
   var infoBoxMouse = newInfoBox("",0 ,0, terminalWidth())
+  var infoBoxAsync = newInfoBox("",0 ,1, terminalWidth())
 
   # Radio buttons
   var chkRadA = newRadioBox("Radio Box Option A", 56, 4)
@@ -376,6 +380,18 @@ when isMainModule:
 
   var textBox = newTextBox("foo", 38, 13, 42, placeholder = "Some placeholder")
 
+  proc asyncDemo(): Future[void] {.async.} =
+    var idx = 0
+    while true:
+      idx.inc
+      infoBoxAsync.text = "Async Demo: " & $idx
+      await sleepAsync(1000)
+  asyncCheck asyncDemo()
+
+  proc httpCall(): Future[void] {.async.} =
+    var client = newHttpClient()
+    infoBox.text = client.getContent("http://ip.code0.xyz").strip()
+
   while true:
     var key = getKey()
 
@@ -383,9 +399,7 @@ when isMainModule:
     if textBox.focus:
       if tb.handleKey(textBox, key):
         tb.write(0,2, bgYellow, fgBlue, textBox.text)
-        # if textBox.text.len > 0:
         chooseBox.add(textBox.text)
-        # chooseBox.grow() # if grow now called here box gets resized after focus loss!
       key.setKeyAsHandled() # If the key input was handled by the textbox
     
     case key
@@ -395,6 +409,13 @@ when isMainModule:
       let coords = getMouse()
       infoBoxMouse.text = $coords
       var ev: Events
+
+      ev = tb.dispatch(btnAsyncHttp, coords)
+      if ev.contains MouseUp:
+        asyncCheck httpCall()
+      if ev.contains MouseDown:
+        infoBox.text = "http call to http://ip.code0.xyz to get your public ip!"
+
 
       ev = tb.dispatch(btnClear, coords)
       if ev.contains MouseUp:
@@ -408,10 +429,12 @@ when isMainModule:
       if ev.contains MouseDown:
         infoBox.text = "Fills the screen!!"
 
-      if tb.dispatch(chkTest, coords).contains MouseUp:
+      ev = tb.dispatch(chkTest, coords)
+      if ev.contains MouseUp:
         infoBox.text = "chk test is: " & $chkTest.checked
       
-      if tb.dispatch(chkTest2, coords).contains MouseUp:
+      ev = tb.dispatch(chkTest2, coords)
+      if ev.contains MouseUp:
         if chkTest2.checked:
           infoBox.text = "red"
           tb.setForegroundColor fgRed
@@ -435,19 +458,20 @@ when isMainModule:
       if ev.contains MouseUp:
         infoBox.text = fmt"Choose box choosenidx: {chooseBox.choosenidx} -> {chooseBox.choosenElement()}"
       
-      ## Textbox is special! (see above for `handleKey`)
+      # Textbox is special! (see above for `handleKey`)
       ev = tb.dispatch(textBox, coords)
   
+      # We enable / disable drawing based on checkbox value
       if chkDraw.checked:
         if coords.action == MouseButtonAction.Pressed:
           tb.write coords.x, coords.y, fgRed, "♥"
         else:
           tb.write coords.x, coords.y, fgGreen, "⌀"
-        
     else:
       infoBox.text = $key
       discard
     
+    tb.render(btnAsyncHttp)
     tb.render(btnClear)
     tb.render(btnTest)
     tb.render(chkTest)
@@ -463,12 +487,13 @@ when isMainModule:
     infoBox.y = terminalHeight()-1
     tb.render(infoBox)
     
-    # No need to update position (is at the top)
-    tb.render(infoBoxMouse)
-
+    tb.render(infoBoxMouse) # No need to update position (is at the top)
+    tb.render(infoBoxAsync)
     tb.render(chooseBox)
-
     tb.render(textBox)
     
     tb.display()
-    sleep(20)
+
+    poll(30) # for the async demo code (keep poll low)
+    # sleep(50) # maybe not needet when calling poll above.
+# 
