@@ -54,11 +54,25 @@ proc httpCall(): Future[void] {.async.} =
   var client = newHttpClient()
   infoBox.text = client.getContent("http://ip.code0.xyz").strip()
 
-proc funDraw(tb: var TerminalBuffer, coords: MouseInfo) = 
-  if coords.action == MouseButtonAction.Pressed:
-    tb.write coords.x, coords.y, fgRed, "♥"
+proc dumpMi(tb: var TerminalBuffer, mi: MouseInfo) = 
+  var idx = 0
+  for line in (repr mi).split("\n"):
+    tb.write 93, 3 + idx, bgYellow, fgBlack, $line.alignLeft(25)
+    idx.inc
+
+proc funDraw(tb: var TerminalBuffer, mi: MouseInfo) = 
+  if mi.action == MouseButtonAction.Pressed:
+    case mi.button
+    of ButtonLeft:
+      tb.write mi.x, mi.y, fgRed, "♥"
+    of ButtonMiddle:
+      tb.write mi.x, mi.y, fgBlue, "◉"
+    of ButtonRight:
+      tb.write mi.x, mi.y, fgCyan, "😎"
+    else: discard
+
   else:
-    tb.write coords.x, coords.y, fgGreen, "⌀"
+    tb.write mi.x, mi.y, fgGreen, "⌀"
 
 
 while true:
@@ -138,6 +152,8 @@ while true:
     if chkDraw.checked:
       tb.funDraw(coords)
 
+    tb.dumpMi(coords) # to print mouse debug infos
+
   else:
     infoBox.text = $key
     discard
@@ -162,6 +178,7 @@ while true:
   tb.render(chooseBox)
   tb.render(textBox)
   
+
   tb.display()
 
   poll(30) # for the async demo code (keep poll low), use sleep below for non async.

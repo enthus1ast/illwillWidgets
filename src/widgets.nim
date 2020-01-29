@@ -321,8 +321,8 @@ proc handleKey*(tb: var TerminalBuffer, wid: var TextBox, key: Key): bool {.disc
     wid.caretIdx.dec
     wid.caretIdx = clamp(wid.caretIdx, 0, wid.text.len)
 
-  if key == Mouse: return false
-  if key == None: return false
+  if key == Key.Mouse: return false
+  if key == Key.None: return false
 
   case key
   of Enter:
