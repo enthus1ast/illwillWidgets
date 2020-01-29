@@ -365,13 +365,12 @@ when isMainModule:
     showCursor()
     quit(0)
 
-  illwillInit(fullscreen=true, mouse=true)
+  illwillInit(fullscreen=true, mouseMode=TrackAny)
   setControlCHook(exitProc)
   hideCursor()
 
   var tb = newTerminalBuffer(terminalWidth(), terminalHeight())
 
-  
   var btnAsyncHttp = newButton("async http", 21, 3, 15, 2)
   var btnTest = newButton("fill", 38, 3, 15, 2)
   var btnClear = newButton("clear", 38, 6, 15, 2)
@@ -487,6 +486,7 @@ when isMainModule:
       # Textbox is special! (see above for `handleKey`)
       ev = tb.dispatch(textBox, coords)
   
+      # RadioBoxGroup dispatches to all group members
       ev = tb.dispatch(radioBoxGroup, coords)
       if ev.contains MouseUp:
         infoBox.text = fmt"Radio button with content '{radioBoxGroup.element().text}' selected."
@@ -506,9 +506,7 @@ when isMainModule:
     tb.render(chkTest2)
     tb.render(chkDraw)
 
-    # tb.render(chkRadA)
-    # tb.render(chkRadB)
-    # tb.render(chkRadC)
+    # RadioBoxGroup renders all its members
     tb.render(radioBoxGroup)
 
     # Update the info box position to always be on the bottom
