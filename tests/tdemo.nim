@@ -12,7 +12,6 @@ illwillInit(fullscreen=true, mouseMode=TrackAny)
 setControlCHook(exitProc)
 hideCursor()
 
-var tb = newTerminalBuffer(terminalWidth(), terminalHeight())
 
 var btnAsyncHttp = newButton("async http", 21, 3, 15, 2)
 var btnTest = newButton("fill", 38, 3, 15, 2)
@@ -54,13 +53,14 @@ proc httpCall(): Future[void] {.async.} =
   var client = newHttpClient()
   infoBox.text = client.getContent("http://ip.code0.xyz").strip()
 
-proc dumpMi(tb: var TerminalBuffer, mi: MouseInfo) = 
+proc dumpMi(tb: var TerminalBuffer, mi: MouseInfo) =
   var idx = 0
   for line in (repr mi).split("\n"):
     tb.write 93, 3 + idx, bgYellow, fgBlack, $line.alignLeft(25)
     idx.inc
 
-proc funDraw(tb: var TerminalBuffer, mi: MouseInfo) = 
+proc funDraw(tb: var TerminalBuffer, mi: MouseInfo) =
+  tb.write resetStyle
   if mi.action == MouseButtonAction.Pressed:
     case mi.button
     of ButtonLeft:
@@ -72,10 +72,17 @@ proc funDraw(tb: var TerminalBuffer, mi: MouseInfo) =
     else: discard
 
   else:
-    tb.write mi.x, mi.y, fgGreen, "⌀"
+    tb.write mi.x, mi.y,  fgGreen, "⌀"
 
+
+var tb = newTerminalBuffer(terminalWidth(), terminalHeight())
 
 while true:
+
+  ## When terminal size change create new buffer to reflect size change
+  if tb.width != terminalWidth() or tb.height != terminalHeight():
+    tb = newTerminalBuffer(terminalWidth(), terminalHeight())
+
   var key = getKey()
 
   # Must be done for every textbox
@@ -84,7 +91,7 @@ while true:
       tb.write(0,2, bgYellow, fgBlue, textBox.text)
       chooseBox.add(textBox.text)
     key.setKeyAsHandled() # If the key input was handled by the textbox
-  
+
   case key
   of Key.None: discard
   of Key.Escape, Key.Q: exitProc()
@@ -102,19 +109,21 @@ while true:
     ev = tb.dispatch(btnClear, coords)
     if ev.contains MouseUp:
       tb.clear()
+      tb.write resetStyle
     if ev.contains MouseDown:
       infoBox.text = "CLEARS THE SCREEN!"
-    
+
     ev = tb.dispatch(btnTest, coords)
     if ev.contains MouseUp:
       tb.clear(chooseBox.element)
+      tb.write resetStyle
     if ev.contains MouseDown:
       infoBox.text = "Fills the screen!!"
 
     ev = tb.dispatch(chkTest, coords)
     if ev.contains MouseUp:
       infoBox.text = "chk test is: " & $chkTest.checked
-    
+
     ev = tb.dispatch(chkTest2, coords)
     if ev.contains MouseUp:
       if chkTest2.checked:
@@ -139,7 +148,7 @@ while true:
     ev = tb.dispatch(chooseBox, coords)
     if ev.contains MouseUp:
       infoBox.text = fmt"Choose box choosenidx: {chooseBox.choosenidx} -> {chooseBox.element()}"
-    
+
     # Textbox is special! (see above for `handleKey`)
     ev = tb.dispatch(textBox, coords)
 
@@ -157,7 +166,7 @@ while true:
   else:
     infoBox.text = $key
     discard
-  
+
   tb.render(btnAsyncHttp)
   tb.render(btnClear)
   tb.render(btnTest)
@@ -172,15 +181,15 @@ while true:
   infoBox.w = terminalWidth()
   infoBox.y = terminalHeight()-1
   tb.render(infoBox)
-  
+
   tb.render(infoBoxMouse) # No need to update position (is at the top)
   tb.render(infoBoxAsync)
   tb.render(chooseBox)
   tb.render(textBox)
-  
+
 
   tb.display()
 
   poll(30) # for the async demo code (keep poll low), use sleep below for non async.
   # sleep(50) # when no async code used, just call sleep(50)
-# 
+#
