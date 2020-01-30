@@ -118,10 +118,10 @@ proc dispatch*(tr: var TerminalBuffer, wid: var Checkbox, mi: MouseInfo): Events
   if not wid.inside(mi): return
   if wid.inside(mi) and mi.action == Pressed:
     result.incl MouseDown
-  if wid.inside(mi) and mi.action == Released:
+  elif wid.inside(mi) and mi.action == Released:
     wid.checked = not wid.checked
     result.incl MouseUp
-  if wid.inside(mi) and mi.action == MouseButtonAction.None:
+  elif wid.inside(mi) and mi.action == MouseButtonAction.None:
     result.incl MouseHover
 
 # ########################################################################################################
