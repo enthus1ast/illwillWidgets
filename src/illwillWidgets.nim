@@ -90,9 +90,9 @@ proc inside(wid: InfoBox, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.w) and (mi.y == wid.y)
 
 proc dispatch*(tb: var TerminalBuffer, wid: InfoBox, mi: MouseInfo): Events {.discardable.} =
-  if wid.inside(mi) and mi.action == Pressed: result.incl MouseDown
-  if wid.inside(mi) and mi.action == Released: result.incl MouseUp
-  if wid.inside(mi) and mi.action == MouseButtonAction.None: result.incl MouseHover
+  if wid.inside(mi) and mi.action == ActionPressed: result.incl MouseDown
+  if wid.inside(mi) and mi.action == ActionReleased: result.incl MouseUp
+  if wid.inside(mi) and mi.action == ActionNone: result.incl MouseHover
 
 # ########################################################################################################
 # Checkbox
@@ -116,12 +116,12 @@ proc inside(wid: Checkbox, mi: MouseInfo): bool =
 
 proc dispatch*(tr: var TerminalBuffer, wid: var Checkbox, mi: MouseInfo): Events {.discardable.} =
   if not wid.inside(mi): return
-  if wid.inside(mi) and mi.action == Pressed:
+  if wid.inside(mi) and mi.action == ActionPressed:
     result.incl MouseDown
-  elif wid.inside(mi) and mi.action == Released:
+  elif wid.inside(mi) and mi.action == ActionReleased:
     wid.checked = not wid.checked
     result.incl MouseUp
-  elif wid.inside(mi) and mi.action == MouseButtonAction.None:
+  elif wid.inside(mi) and mi.action == ActionNone:
     result.incl MouseHover
 
 # ########################################################################################################
@@ -146,7 +146,7 @@ proc dispatch*(tb: var TerminalBuffer, wid: var RadioBoxGroup, mi: MouseInfo): E
   var insideSome = false
   for radioButton in wid.radioButtons.mitems:
     if radioButton.inside(mi): insideSome = true
-  if (not insideSome) or (mi.action != Released): return
+  if (not insideSome) or (mi.action != ActionReleased): return
   for radioButton in wid.radioButtons.mitems:
     radioButton.checked = false
   for radioButton in wid.radioButtons.mitems:
@@ -198,10 +198,10 @@ proc dispatch*(tr: var TerminalBuffer, wid: var Button, mi: MouseInfo): Events {
     wid.highlight = false
     return
   case mi.action
-  of Pressed:
+  of ActionPressed:
     wid.highlight = true
     result.incl MouseDown
-  of Released:
+  of ActionReleased:
     wid.highlight = false
     result.incl MouseUp
   else:
@@ -263,9 +263,9 @@ proc dispatch*(tr: var TerminalBuffer, wid: var ChooseBox, mi: MouseInfo): Event
   if not wid.inside(mi):
     return
   case mi.action
-  of Pressed:
+  of ActionPressed:
     result.incl MouseDown
-  of Released:
+  of ActionReleased:
     wid.choosenidx = clamp( (mi.y - wid.y)-1 , 0, wid.elements.len-1)
     result.incl MouseUp
   else:
@@ -309,14 +309,14 @@ proc inside(wid: TextBox, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.w) and (mi.y == wid.y)
 
 proc dispatch*(tb: var TerminalBuffer, wid: var TextBox, mi: MouseInfo): Events {.discardable.} =
-  if wid.inside(mi) and mi.action == Pressed:
+  if wid.inside(mi) and mi.action == ActionPressed:
     result.incl MouseDown
-  if wid.inside(mi) and mi.action == Released:
+  if wid.inside(mi) and mi.action == ActionReleased:
     wid.focus = true
     result.incl MouseUp
-  if wid.inside(mi) and mi.action == MouseButtonAction.None:
+  if wid.inside(mi) and mi.action == ActionNone:
     result.incl MouseHover
-  if not wid.inside(mi) and mi.action == Released or mi.action == Pressed:
+  if not wid.inside(mi) and mi.action == ActionReleased or mi.action == ActionPressed:
     wid.focus = false
 
 proc handleKey*(tb: var TerminalBuffer, wid: var TextBox, key: Key): bool {.discardable.} =

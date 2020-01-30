@@ -1,4 +1,4 @@
-import ../src/widgets
+import ../src/illwillWidgets
 import illwill
 import strformat, strutils
 import asyncdispatch, httpclient # for async demonstration
@@ -60,7 +60,7 @@ proc dumpMi(tb: var TerminalBuffer, mi: MouseInfo) =
 
 proc funDraw(tb: var TerminalBuffer, mi: MouseInfo) =
   tb.write resetStyle
-  if mi.action == MouseButtonAction.Pressed:
+  if mi.action == ActionPressed:
     case mi.button
     of ButtonLeft:
       tb.write mi.x, mi.y, fgRed, "♥"
@@ -69,7 +69,7 @@ proc funDraw(tb: var TerminalBuffer, mi: MouseInfo) =
     of ButtonRight:
       tb.write mi.x, mi.y, fgCyan, "#"
     else: discard
-  elif mi.action == MouseButtonAction.Released:
+  elif mi.action == ActionReleased:
     tb.write mi.x, mi.y,  fgGreen, "⌀"
 
 var tb = newTerminalBuffer(terminalWidth(), terminalHeight())
