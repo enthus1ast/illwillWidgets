@@ -1,17 +1,16 @@
 import ../src/widgets
 import illwill
 import strformat, strutils
-import asyncdispatch, httpclient# for async demonstration
+import asyncdispatch, httpclient # for async demonstration
 
 proc exitProc() {.noconv.} =
   illwillDeinit()
   showCursor()
   quit(0)
 
-illwillInit(fullscreen=true, mouseMode=TrackAny)
+illwillInit(fullscreen=true, mouse=true)
 setControlCHook(exitProc)
 hideCursor()
-
 
 var btnAsyncHttp = newButton("async http", 21, 3, 15, 2)
 var btnTest = newButton("fill", 38, 3, 15, 2)
@@ -68,17 +67,14 @@ proc funDraw(tb: var TerminalBuffer, mi: MouseInfo) =
     of ButtonMiddle:
       tb.write mi.x, mi.y, fgBlue, "◉"
     of ButtonRight:
-      tb.write mi.x, mi.y, fgCyan, "😎"
+      tb.write mi.x, mi.y, fgCyan, "#"
     else: discard
-
-  else:
+  elif mi.action == MouseButtonAction.Released:
     tb.write mi.x, mi.y,  fgGreen, "⌀"
-
 
 var tb = newTerminalBuffer(terminalWidth(), terminalHeight())
 
 while true:
-
   ## When terminal size change create new buffer to reflect size change
   if tb.width != terminalWidth() or tb.height != terminalHeight():
     tb = newTerminalBuffer(terminalWidth(), terminalHeight())
@@ -103,21 +99,21 @@ while true:
     ev = tb.dispatch(btnAsyncHttp, coords)
     if ev.contains MouseUp:
       asyncCheck httpCall()
-    if ev.contains MouseDown:
+    if ev.contains MouseHover:
       infoBox.text = "http call to http://ip.code0.xyz to get your public ip!"
 
     ev = tb.dispatch(btnClear, coords)
     if ev.contains MouseUp:
       tb.clear()
       tb.write resetStyle
-    if ev.contains MouseDown:
+    if ev.contains MouseHover:
       infoBox.text = "CLEARS THE SCREEN!"
 
     ev = tb.dispatch(btnTest, coords)
     if ev.contains MouseUp:
       tb.clear(chooseBox.element)
       tb.write resetStyle
-    if ev.contains MouseDown:
+    if ev.contains MouseHover:
       infoBox.text = "Fills the screen!!"
 
     ev = tb.dispatch(chkTest, coords)
@@ -136,7 +132,7 @@ while true:
         tb.setForegroundColor fgGreen
 
     ev = tb.dispatch(chkDraw, coords)
-    if ev.contains MouseDown:
+    if ev.contains MouseHover:
       infoBox.text = "Enables/Disables drawing"
 
     ev = tb.dispatch(infoBox, coords)
@@ -187,9 +183,7 @@ while true:
   tb.render(chooseBox)
   tb.render(textBox)
 
-
   tb.display()
 
   poll(30) # for the async demo code (keep poll low), use sleep below for non async.
   # sleep(50) # when no async code used, just call sleep(50)
-#
