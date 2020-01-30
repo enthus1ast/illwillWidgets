@@ -23,9 +23,9 @@ chkTest2.textChecked =   ":(  "
 var chkDraw = newCheckbox("Draw?", 38, 11)
 
 # Info box
-var infoBox = newInfoBox("",0 ,0, terminalWidth())
-var infoBoxMouse = newInfoBox("",0 ,0, terminalWidth())
-var infoBoxAsync = newInfoBox("",0 ,1, terminalWidth())
+var infoBox = newInfoBox("", 0 ,0, terminalWidth())
+var infoBoxMouse = newInfoBox("", 0 ,0, terminalWidth())
+var infoBoxAsync = newInfoBox("", 0 ,1, terminalWidth())
 
 # Radio buttons
 var chkRadA = newRadioBox("Radio Box Option A", 56, 4)

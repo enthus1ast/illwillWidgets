@@ -1,27 +1,3 @@
-# illwillWidgets
-experimental mouse enabled widgets for illwill; based on [my mouse fork of illwill](https://github.com/enthus1ast/illwill)
-
-[![asciicast](https://asciinema.org/a/GO4nhu01AItIrS1ihBoPWlMeH.svg)](https://asciinema.org/a/GO4nhu01AItIrS1ihBoPWlMeH)
-
-OS Support
-==========
-
-linux, windows, macos
-
-Widgets
-=======
-
-- buttons
-- checkbox
-- radiobox
-- listview
-- (simple) textbox
-- "info" box (like a status bar)
-
-example
-=======
-
-```nim
 import illwill
 import illwillWidgets
 import os
@@ -87,10 +63,3 @@ while true:
   tb.display()
 
   sleep(25)
-
-```
-
-more examples
-=============
-
-for a complete example see the [examples/demo.nim file](examples/demo.nim)
