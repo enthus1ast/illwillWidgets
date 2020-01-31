@@ -90,9 +90,11 @@ proc inside(wid: InfoBox, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.w) and (mi.y == wid.y)
 
 proc dispatch*(tb: var TerminalBuffer, wid: InfoBox, mi: MouseInfo): Events {.discardable.} =
-  if wid.inside(mi) and mi.action == ActionPressed: result.incl MouseDown
-  if wid.inside(mi) and mi.action == ActionReleased: result.incl MouseUp
-  if wid.inside(mi) and mi.action == ActionNone: result.incl MouseHover
+  if not wid.inside(mi): return
+  case mi.action
+  of ActionPressed: result.incl MouseDown
+  of ActionReleased: result.incl MouseUp
+  of ActionNone: result.incl MouseHover
 
 # ########################################################################################################
 # Checkbox
@@ -116,12 +118,13 @@ proc inside(wid: Checkbox, mi: MouseInfo): bool =
 
 proc dispatch*(tr: var TerminalBuffer, wid: var Checkbox, mi: MouseInfo): Events {.discardable.} =
   if not wid.inside(mi): return
-  if wid.inside(mi) and mi.action == ActionPressed:
+  case mi.action
+  of ActionPressed:
     result.incl MouseDown
-  elif wid.inside(mi) and mi.action == ActionReleased:
+  of ActionReleased:
     wid.checked = not wid.checked
     result.incl MouseUp
-  elif wid.inside(mi) and mi.action == ActionNone:
+  of ActionNone:
     result.incl MouseHover
 
 # ########################################################################################################
@@ -134,6 +137,8 @@ proc newRadioBox*(text: string, x, y: int, color = fgBlue): Checkbox =
   result.textUnchecked = "( ) "
 
 proc newRadioBoxGroup*(radioButtons: seq[Checkbox]): RadioBoxGroup =
+  ## Create a new radio box, add radio boxes to the group,
+  ## then call the *groups* `render` and `dispatch` proc.
   result = RadioBoxGroup(
     radioButtons: radioButtons
   )
@@ -193,7 +198,6 @@ proc inside(wid: Button, mi: MouseInfo): bool =
 
 proc dispatch*(tr: var TerminalBuffer, wid: var Button, mi: MouseInfo): Events {.discardable.} =
   ## if the mouse clicks this button
-  result = {}
   if not wid.inside(mi):
     wid.highlight = false
     return
@@ -212,6 +216,8 @@ proc dispatch*(tr: var TerminalBuffer, wid: var Button, mi: MouseInfo): Events {
 # ChooseBox
 # ########################################################################################################
 proc grow*(wid: var ChooseBox) =
+  ## call this to grow the box immediately if you've added or removed a element
+  ## from the `wid.elements` seq.
   if wid.elements.len >= wid.h: wid.h = wid.elements.len+1 # TODO allowedToGrow
 
 proc add*(wid: var ChooseBox, elem: string) =
@@ -221,6 +227,7 @@ proc add*(wid: var ChooseBox, elem: string) =
 
 proc newChooseBox*(elements: seq[string], x, y, w, h: int,
       color = fgBlue, label = "", choosenidx = 0): ChooseBox =
+  ## a list of text items to choose from, sometimes also called listbox
   result = ChooseBox(
     elements: elements,
     choosenidx: choosenidx,
@@ -260,8 +267,7 @@ proc inside(wid: ChooseBox, mi: MouseInfo): bool =
 proc dispatch*(tr: var TerminalBuffer, wid: var ChooseBox, mi: MouseInfo): Events {.discardable.} =
   result = {}
   wid.grow()
-  if not wid.inside(mi):
-    return
+  if not wid.inside(mi): return
   case mi.action
   of ActionPressed:
     result.incl MouseDown
@@ -309,14 +315,16 @@ proc inside(wid: TextBox, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.w) and (mi.y == wid.y)
 
 proc dispatch*(tb: var TerminalBuffer, wid: var TextBox, mi: MouseInfo): Events {.discardable.} =
-  if wid.inside(mi) and mi.action == ActionPressed:
-    result.incl MouseDown
-  if wid.inside(mi) and mi.action == ActionReleased:
-    wid.focus = true
-    result.incl MouseUp
-  if wid.inside(mi) and mi.action == ActionNone:
-    result.incl MouseHover
-  if not wid.inside(mi) and mi.action == ActionReleased or mi.action == ActionPressed:
+  if wid.inside(mi):
+    case mi.action
+    of ActionPressed:
+      result.incl MouseDown
+    of ActionReleased:
+      wid.focus = true
+      result.incl MouseUp
+    of ActionNone:
+      result.incl MouseHover
+  elif not wid.inside(mi) and (mi.action == ActionReleased or mi.action == ActionPressed):
     wid.focus = false
 
 proc handleKey*(tb: var TerminalBuffer, wid: var TextBox, key: Key): bool {.discardable.} =
