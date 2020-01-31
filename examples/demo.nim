@@ -40,11 +40,16 @@ var chooseBox = newChooseBox(@[" ", "#", "@", "§"], 81, 3, 10, 5, choosenidx=2)
 
 var textBox = newTextBox("foo", 38, 13, 42, placeholder = "Some placeholder")
 
+var progressBarAsync = newProgressBar("some text", 18, 15, 100, 0.0, 50.0)
+var progressBarInteract = newProgressBar("some text", 18, 17, 50, 0.0, 50.0)
+
 proc asyncDemo(): Future[void] {.async.} =
   var idx = 0
   while true:
     idx.inc
     infoBoxAsync.text = "Async Demo: " & $idx
+    progressBarAsync.value = (idx mod progressBarAsync.maxValue.int).float
+    # echo progressBar.value
     await sleepAsync(1000)
 asyncCheck asyncDemo()
 
@@ -134,6 +139,9 @@ while true:
     ev = tb.dispatch(chkDraw, coords)
     if ev.contains MouseHover:
       infoBox.text = "Enables/Disables drawing"
+    # We enable / disable drawing based on checkbox value
+    if chkDraw.checked:
+      tb.funDraw(coords)
 
     ev = tb.dispatch(infoBox, coords)
     if ev.contains MouseDown:
@@ -153,9 +161,9 @@ while true:
     if ev.contains MouseUp:
       infoBox.text = fmt"Radio button with content '{radioBoxGroup.element().text}' selected."
 
-    # We enable / disable drawing based on checkbox value
-    if chkDraw.checked:
-      tb.funDraw(coords)
+    ev = tb.dispatch(progressBarInteract, coords)
+    if ev.contains MouseDown:
+      progressBarInteract.value = progressBarInteract.valueOnPos(coords)
 
     tb.dumpMi(coords) # to print mouse debug infos
 
@@ -182,6 +190,9 @@ while true:
   tb.render(infoBoxAsync)
   tb.render(chooseBox)
   tb.render(textBox)
+  tb.render(progressBarAsync)
+  tb.render(progressBarInteract)
+
 
   tb.display()
 

@@ -54,6 +54,11 @@ type
     focus*: bool
     w*: int
     caretIdx*: int
+  ProgressBar* = object of Widget
+    text*: string
+    w*: int
+    maxValue*: float
+    value*: float
 
 # Cannot do this atm because of layering!
   # ComboBox[Key] = object of Widget
@@ -371,3 +376,46 @@ template setKeyAsHandled*(key: Key) =
   ## call this on key when the key was handled by a textbox
   if key != Key.Mouse:
     key = Key.None
+
+# ########################################################################################################
+# ProgressBar
+# ########################################################################################################
+proc newProgressBar*(text: string, x, y: int, w = 10, value = 0.0, maxValue = 100.0): ProgressBar =
+  result = ProgressBar(
+    text: text,
+    x: x,
+    y: y,
+    w: w,
+    value: value,
+    maxValue: maxValue
+  )
+import strformat
+proc render*(tb: var TerminalBuffer, wid: ProgressBar) {.preserveColor.} =
+  let percent = (wid.value / wid.maxValue) * 100 #* wid.value
+  tb.write(wid.x, wid.y+1, fmt"  {wid.value}/{wid.maxValue}  percent: {percent}              ")
+  # let num:int = ((wid.w-1).float * (percent)).int
+  let num = (wid.w.float / 100.0).float * percent
+  let done = "=".repeat(num.int) # [0..num]
+  let todo = "-".repeat(wid.w - num.int) # [num+1..^1]
+  tb.write(wid.x, wid.y, bgGreen, done, bgRed, todo)
+
+proc inside(wid: ProgressBar, mi: MouseInfo): bool =
+  return (mi.x in wid.x .. wid.x+wid.w) and (mi.y == wid.y)
+
+# proc percentOnPos*(wid: ProgressBar, mi: MouseInfo): float =
+
+proc valueOnPos*(wid: ProgressBar, mi: MouseInfo): float =
+  if not wid.inside(mi): return 0.0
+  let cell = ((mi.x - wid.x))
+  return (cell / wid.w) * wid.maxValue # / (wid.w.float)
+  # return 10.0
+
+proc dispatch*(tb: var TerminalBuffer, wid: var ProgressBar, mi: MouseInfo): Events {.discardable.} =
+  if not wid.inside(mi): return
+  result.incl MouseHover
+  case mi.action
+  of ActionPressed:
+    result.incl MouseDown
+  of ActionReleased:
+    result.incl MouseUp
+  of ActionNone: discard
