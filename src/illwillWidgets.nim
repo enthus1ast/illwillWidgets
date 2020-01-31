@@ -17,7 +17,6 @@ macro preserveColor(pr: untyped) =
     `oldbody`
     tb.setForegroundColor oldFg
     tb.setBackgroundColor oldBg
-  # echo repr result
 
 type
   Event* = enum
@@ -31,7 +30,6 @@ type
     highlight*: bool
   Button* = object of Widget
     text*: string
-    # boxBuffer: BoxBuffer
     w*: int
     h*: int
   Checkbox* = object of Widget
@@ -167,7 +165,7 @@ proc element*(wid: RadioBoxGroup): Checkbox =
 # ########################################################################################################
 # Button
 # ########################################################################################################
-proc newButton*(text: string, x, y, w, h: int, color = fgBlue): Button = #, cb = ButtonCallback): Button =
+proc newButton*(text: string, x, y, w, h: int, color = fgBlue): Button =
   result = Button(
     text: text,
     highlight: false,
