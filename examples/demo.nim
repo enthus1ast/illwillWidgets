@@ -26,6 +26,8 @@ var chkDraw = newCheckbox("Draw?", 38, 11)
 var infoBox = newInfoBox("", 0 ,0, terminalWidth())
 var infoBoxMouse = newInfoBox("", 0 ,0, terminalWidth())
 var infoBoxAsync = newInfoBox("", 0 ,1, terminalWidth())
+var infoBoxMulti = newInfoBox("", 93 ,3, 25, 10)
+infoBoxMulti.bgcolor = bgYellow
 
 # Radio buttons
 var chkRadA = newRadioBox("Radio Box Option A", 56, 4)
@@ -41,7 +43,11 @@ var chooseBox = newChooseBox(@[" ", "#", "@", "§"], 81, 3, 10, 5, choosenidx=2)
 var textBox = newTextBox("foo", 38, 13, 42, placeholder = "Some placeholder")
 
 var progressBarAsync = newProgressBar("some text", 18, 15, 100, 0.0, 50.0)
+var infoProgressBarAsync = newInfoBox("", 18, 16, 100)
+
 var progressBarInteract = newProgressBar("some text", 18, 17, 50, 0.0, 50.0)
+var infoProgressBarInteract = newInfoBox("", 18, 18, 50)
+
 
 proc asyncDemo(): Future[void] {.async.} =
   var idx = 0
@@ -49,19 +55,22 @@ proc asyncDemo(): Future[void] {.async.} =
     idx.inc
     infoBoxAsync.text = "Async Demo: " & $idx
     progressBarAsync.value = (idx mod progressBarAsync.maxValue.int).float
+    infoProgressBarAsync.text =
+      fmt"{progressBarAsync.value}/{progressBarAsync.maxValue}  percent: {progressBarAsync.percent}"
     # echo progressBar.value
     await sleepAsync(1000)
 asyncCheck asyncDemo()
 
-proc httpCall(): Future[void] {.async.} =
+proc httpCall(tb: ptr TerminalBuffer): Future[void] {.async.} =
   var client = newHttpClient()
-  infoBox.text = client.getContent("http://ip.code0.xyz").strip()
+  tb[].write(20, 6, $client.getContent("http://ip.code0.xyz").strip())
 
 proc dumpMi(tb: var TerminalBuffer, mi: MouseInfo) =
-  var idx = 0
-  for line in (repr mi).split("\n"):
-    tb.write 93, 3 + idx, bgYellow, fgBlack, $line.alignLeft(25)
-    idx.inc
+  infoBoxMulti.text = (repr mi) #.split("\n")
+  # var idx = 0
+  # for line in (repr mi).split("\n"):
+  #   tb.write 93, 3 + idx, bgYellow, fgBlack, $line.alignLeft(25), resetStyle
+  #   idx.inc
 
 proc funDraw(tb: var TerminalBuffer, mi: MouseInfo) =
   tb.write resetStyle
@@ -103,7 +112,7 @@ while true:
 
     ev = tb.dispatch(btnAsyncHttp, coords)
     if ev.contains MouseUp:
-      asyncCheck httpCall()
+      asyncCheck httpCall(addr tb) # the `addr` here is just for demo purpose, not recommend
     if ev.contains MouseHover:
       infoBox.text = "http call to http://ip.code0.xyz to get your public ip!"
 
@@ -161,10 +170,26 @@ while true:
     if ev.contains MouseUp:
       infoBox.text = fmt"Radio button with content '{radioBoxGroup.element().text}' selected."
 
-    ev = tb.dispatch(progressBarInteract, coords)
-    if ev.contains MouseDown:
-      progressBarInteract.value = progressBarInteract.valueOnPos(coords)
+    ev = tb.dispatch(progressBarAsync, coords)
+    if ev.contains MouseHover:
+      infoBox.text = "i get filled by the async code!"
 
+    ev = tb.dispatch(progressBarInteract, coords)
+    if ev.contains MouseHover:
+      infoBox.text = "Interactive progress bar! (left, right click or scroll)"
+      if coords.scroll:
+        if coords.scrollDir == ScrollUp:
+          progressBarInteract.percent = progressBarInteract.percent - 5.0
+        if coords.scrollDir == ScrollDown:
+          progressBarInteract.percent = progressBarInteract.percent + 5.0
+    if ev.contains MouseDown:
+      if coords.button == ButtonLeft:
+        progressBarInteract.value = progressBarInteract.valueOnPos(coords)
+      if coords.button == ButtonRight:
+        progressBarInteract.percent = 50.0
+    infoProgressBarInteract.text =
+      fmt"{progressBarInteract.value}/{progressBarInteract.maxValue}  percent: {progressBarInteract.percent}"
+    tb.write(70, 17, "<-- interact with me! (left, right click, scroll)")
     tb.dumpMi(coords) # to print mouse debug infos
 
   else:
@@ -187,14 +212,20 @@ while true:
   tb.render(infoBox)
 
   tb.render(infoBoxMouse) # No need to update position (is at the top)
+  tb.render(infoBoxMulti)
   tb.render(infoBoxAsync)
   tb.render(chooseBox)
   tb.render(textBox)
+
   tb.render(progressBarAsync)
+  tb.render(infoProgressBarAsync)
+
   tb.render(progressBarInteract)
+  tb.render(infoProgressBarInteract)
 
 
   tb.display()
 
-  poll(30) # for the async demo code (keep poll low), use sleep below for non async.
+  # poll(100) # for the async demo code (keep poll low), use sleep below for non async.
+  poll(25) # for the async demo code (keep poll low), use sleep below for non async.
   # sleep(50) # when no async code used, just call sleep(50)

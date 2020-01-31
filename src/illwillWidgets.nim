@@ -10,15 +10,18 @@ macro preserveColor(pr: untyped) =
   let oldbody = pr.body
   result.params = pr.params
   result.body = quote do:
-    let oldFg = tb.getForegroundColor
-    let oldBg = tb.getBackgroundColor
-    tb.setForegroundColor wid.color
-    tb.setBackgroundColor wid.bgcolor
+    let oldFg = tb.getForegroundColor()
+    let oldBg = tb.getBackgroundColor()
+    let oldStyle = tb.getStyle()
+    tb.setForegroundColor(wid.color)
+    tb.setBackgroundColor(wid.bgcolor)
     `oldbody`
     tb.setForegroundColor oldFg
     tb.setBackgroundColor oldBg
+    tb.setStyle oldStyle
 
 type
+  Percent* = range[0.0..100.0]
   Event* = enum
     MouseHover, MouseUp, MouseDown
   Events* = set[Event]
@@ -42,6 +45,7 @@ type
   InfoBox* = object of Widget
     text*: string
     w*: int
+    h*: int
   ChooseBox* = object of Widget
     bgcolorChoosen*: BackgroundColor
     choosenidx*: int
@@ -75,19 +79,22 @@ type
 # ########################################################################################################
 # InfoBox
 # ########################################################################################################
-proc newInfoBox*(text: string, x, y: int, w = 10, color = fgBlack, bgcolor = bgWhite): InfoBox =
+proc newInfoBox*(text: string, x, y: int, w = 10, h = 1, color = fgBlack, bgcolor = bgWhite): InfoBox =
   result = InfoBox(
     text: text,
     x: x,
     y: y,
     w: w,
+    h: h,
     color: color,
     bgcolor: bgcolor,
   )
 
 proc render*(tb: var TerminalBuffer, wid: InfoBox) {.preserveColor.} =
   # TODO save old text to only overwrite the len of the old text
-  tb.write(wid.x, wid.y, wid.text.alignLeft(wid.w))
+  let  lines = wid.text.splitLines()
+  for idx in 0..lines.len-1:
+    tb.write(wid.x, wid.y+idx, lines[idx].alignLeft(wid.w))
 
 proc inside(wid: InfoBox, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.w) and (mi.y == wid.y)
@@ -390,11 +397,20 @@ proc newProgressBar*(text: string, x, y: int, w = 10, value = 0.0, maxValue = 10
     maxValue: maxValue
   )
 import strformat
+
+proc percent*(wid: ProgressBar): float =
+  ## Gets the percentage the progress bar is filled
+  return (wid.value / wid.maxValue) * 100
+
+proc `percent=`*(wid: var ProgressBar, val: float) =
+  ## sets the percentage the progress bar should be filled
+  # if val < 0
+  wid.value = (val * wid.maxValue / 100.0).clamp(0.0, wid.maxValue)
+
 proc render*(tb: var TerminalBuffer, wid: ProgressBar) {.preserveColor.} =
-  let percent = (wid.value / wid.maxValue) * 100 #* wid.value
-  tb.write(wid.x, wid.y+1, fmt"  {wid.value}/{wid.maxValue}  percent: {percent}              ")
+  # tb.write(wid.x, wid.y+1, fmt              ")
   # let num:int = ((wid.w-1).float * (percent)).int
-  let num = (wid.w.float / 100.0).float * percent
+  let num = (wid.w.float / 100.0).float * wid.percent
   let done = "=".repeat(num.int) # [0..num]
   let todo = "-".repeat(wid.w - num.int) # [num+1..^1]
   tb.write(wid.x, wid.y, bgGreen, done, bgRed, todo)
@@ -403,12 +419,13 @@ proc inside(wid: ProgressBar, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.w) and (mi.y == wid.y)
 
 # proc percentOnPos*(wid: ProgressBar, mi: MouseInfo): float =
+#   let cell = ((mi.x - wid.x))
+#   return (cell / wid.w)
 
 proc valueOnPos*(wid: ProgressBar, mi: MouseInfo): float =
   if not wid.inside(mi): return 0.0
   let cell = ((mi.x - wid.x))
-  return (cell / wid.w) * wid.maxValue # / (wid.w.float)
-  # return 10.0
+  return (cell / wid.w) * wid.maxValue
 
 proc dispatch*(tb: var TerminalBuffer, wid: var ProgressBar, mi: MouseInfo): Events {.discardable.} =
   if not wid.inside(mi): return
