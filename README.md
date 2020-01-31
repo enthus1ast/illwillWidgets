@@ -17,6 +17,7 @@ Widgets
 - listview
 - (simple) textbox
 - "info" box (like a status bar)
+- progressbar / slider
 
 example
 =======
