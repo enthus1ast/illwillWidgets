@@ -94,4 +94,4 @@ while true:
 more examples
 =============
 
-for a complete example see the [examples/demo.nim file](examples/demo.nim)
+for a complete example see [examples/demo.nim](examples/demo.nim)
