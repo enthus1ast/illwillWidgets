@@ -118,14 +118,14 @@ proc inside(wid: Checkbox, mi: MouseInfo): bool =
 
 proc dispatch*(tr: var TerminalBuffer, wid: var Checkbox, mi: MouseInfo): Events {.discardable.} =
   if not wid.inside(mi): return
+  result.incl MouseHover
   case mi.action
   of ActionPressed:
     result.incl MouseDown
   of ActionReleased:
     wid.checked = not wid.checked
     result.incl MouseUp
-  of ActionNone:
-    result.incl MouseHover
+  of ActionNone: discard
 
 # ########################################################################################################
 # RadioBox
@@ -201,6 +201,7 @@ proc dispatch*(tr: var TerminalBuffer, wid: var Button, mi: MouseInfo): Events {
   if not wid.inside(mi):
     wid.highlight = false
     return
+  result.incl MouseHover
   case mi.action
   of ActionPressed:
     wid.highlight = true
@@ -208,9 +209,8 @@ proc dispatch*(tr: var TerminalBuffer, wid: var Button, mi: MouseInfo): Events {
   of ActionReleased:
     wid.highlight = false
     result.incl MouseUp
-  else:
+  of ActionNone:
     wid.highlight = true
-    result.incl MouseHover
 
 # ########################################################################################################
 # ChooseBox
@@ -268,14 +268,14 @@ proc dispatch*(tr: var TerminalBuffer, wid: var ChooseBox, mi: MouseInfo): Event
   result = {}
   wid.grow()
   if not wid.inside(mi): return
+  result.incl MouseHover
   case mi.action
   of ActionPressed:
     result.incl MouseDown
   of ActionReleased:
     wid.choosenidx = clamp( (mi.y - wid.y)-1 , 0, wid.elements.len-1)
     result.incl MouseUp
-  else:
-    result.incl MouseHover
+  of ActionNone: discard
 
 # ########################################################################################################
 # TextBox
@@ -316,14 +316,14 @@ proc inside(wid: TextBox, mi: MouseInfo): bool =
 
 proc dispatch*(tb: var TerminalBuffer, wid: var TextBox, mi: MouseInfo): Events {.discardable.} =
   if wid.inside(mi):
+    result.incl MouseHover
     case mi.action
     of ActionPressed:
       result.incl MouseDown
     of ActionReleased:
       wid.focus = true
       result.incl MouseUp
-    of ActionNone:
-      result.incl MouseHover
+    of ActionNone: discard
   elif not wid.inside(mi) and (mi.action == ActionReleased or mi.action == ActionPressed):
     wid.focus = false
 
