@@ -12,9 +12,13 @@ illwillInit(fullscreen=true, mouse=true)
 setControlCHook(exitProc)
 hideCursor()
 
+# Button
 var btnAsyncHttp = newButton("async http", 21, 3, 15, 2)
 var btnTest = newButton("fill", 38, 3, 15, 2)
 var btnClear = newButton("clear", 38, 6, 15, 2)
+var btnNoBorder = newButton("no border", 21, 7, 15, 1, border = false)
+
+# Checkbox
 var chkTest = newCheckbox("Some content", 38, 9)
 var chkTest2 = newCheckbox("Fill Color", 38, 10)
 chkTest2.textUnchecked = ":)  "
@@ -63,7 +67,7 @@ asyncCheck asyncDemo()
 
 proc httpCall(tb: ptr TerminalBuffer): Future[void] {.async.} =
   var client = newHttpClient()
-  tb[].write(20, 6, $client.getContent("http://ip.code0.xyz").strip())
+  tb[].write(22, 6, $client.getContent("http://ip.code0.xyz").strip())
 
 proc dumpMi(tb: var TerminalBuffer, mi: MouseInfo) =
   infoBoxMulti.text = (repr mi) #.split("\n")
@@ -74,16 +78,16 @@ proc dumpMi(tb: var TerminalBuffer, mi: MouseInfo) =
 
 proc funDraw(tb: var TerminalBuffer, mi: MouseInfo) =
   tb.write resetStyle
-  if mi.action == ActionPressed:
+  if mi.action == mbaPressed:
     case mi.button
-    of ButtonLeft:
+    of mbLeft:
       tb.write mi.x, mi.y, fgRed, "♥"
-    of ButtonMiddle:
+    of mbMiddle:
       tb.write mi.x, mi.y, fgBlue, "◉"
-    of ButtonRight:
+    of mbRight:
       tb.write mi.x, mi.y, fgCyan, "#"
     else: discard
-  elif mi.action == ActionReleased:
+  elif mi.action == mbaReleased:
     tb.write mi.x, mi.y,  fgGreen, "⌀"
 
 var tb = newTerminalBuffer(terminalWidth(), terminalHeight())
@@ -115,6 +119,13 @@ while true:
       asyncCheck httpCall(addr tb) # the `addr` here is just for demo purpose, not recommend
     if ev.contains MouseHover:
       infoBox.text = "http call to http://ip.code0.xyz to get your public ip!"
+
+    ev = tb.dispatch(btnNoBorder, coords)
+    # if ev.contains MouseUp:
+    #   asyncCheck httpCall(addr tb) # the `addr` here is just for demo purpose, not recommend
+    # if ev.contains MouseHover:
+    #   infoBox.text = "http call to http://ip.code0.xyz to get your public ip!"
+
 
     ev = tb.dispatch(btnClear, coords)
     if ev.contains MouseUp:
@@ -178,14 +189,14 @@ while true:
     if ev.contains MouseHover:
       infoBox.text = "Interactive progress bar! (left, right click or scroll)"
       if coords.scroll:
-        if coords.scrollDir == ScrollUp:
+        if coords.scrollDir == sdUp:
           progressBarInteract.percent = progressBarInteract.percent - 5.0
-        if coords.scrollDir == ScrollDown:
+        if coords.scrollDir == sdDown:
           progressBarInteract.percent = progressBarInteract.percent + 5.0
     if ev.contains MouseDown:
-      if coords.button == ButtonLeft:
+      if coords.button == mbLeft:
         progressBarInteract.value = progressBarInteract.valueOnPos(coords)
-      if coords.button == ButtonRight:
+      if coords.button == mbRight:
         progressBarInteract.percent = 50.0
     infoProgressBarInteract.text =
       fmt"{progressBarInteract.value}/{progressBarInteract.maxValue}  percent: {progressBarInteract.percent}"
@@ -197,8 +208,10 @@ while true:
     discard
 
   tb.render(btnAsyncHttp)
+  tb.render(btnNoBorder)
   tb.render(btnClear)
   tb.render(btnTest)
+
   tb.render(chkTest)
   tb.render(chkTest2)
   tb.render(chkDraw)

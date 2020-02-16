@@ -30,11 +30,13 @@ type
     y*: int
     color*: ForegroundColor
     bgcolor*: BackgroundColor
+    style*: Style
     highlight*: bool
   Button* = object of Widget
     text*: string
     w*: int
     h*: int
+    border*: bool
   Checkbox* = object of Widget
     text*: string
     checked*: bool
@@ -102,9 +104,9 @@ proc inside(wid: InfoBox, mi: MouseInfo): bool =
 proc dispatch*(tb: var TerminalBuffer, wid: InfoBox, mi: MouseInfo): Events {.discardable.} =
   if not wid.inside(mi): return
   case mi.action
-  of ActionPressed: result.incl MouseDown
-  of ActionReleased: result.incl MouseUp
-  of ActionNone: result.incl MouseHover
+  of mbaPressed: result.incl MouseDown
+  of mbaReleased: result.incl MouseUp
+  of mbaNone: result.incl MouseHover
 
 # ########################################################################################################
 # Checkbox
@@ -130,12 +132,12 @@ proc dispatch*(tr: var TerminalBuffer, wid: var Checkbox, mi: MouseInfo): Events
   if not wid.inside(mi): return
   result.incl MouseHover
   case mi.action
-  of ActionPressed:
+  of mbaPressed:
     result.incl MouseDown
-  of ActionReleased:
+  of mbaReleased:
     wid.checked = not wid.checked
     result.incl MouseUp
-  of ActionNone: discard
+  of mbaNone: discard
 
 # ########################################################################################################
 # RadioBox
@@ -161,7 +163,7 @@ proc dispatch*(tb: var TerminalBuffer, wid: var RadioBoxGroup, mi: MouseInfo): E
   var insideSome = false
   for radioButton in wid.radioButtons.mitems:
     if radioButton.inside(mi): insideSome = true
-  if (not insideSome) or (mi.action != ActionReleased): return
+  if (not insideSome) or (mi.action != mbaReleased): return
   for radioButton in wid.radioButtons.mitems:
     radioButton.checked = false
   for radioButton in wid.radioButtons.mitems:
@@ -177,7 +179,7 @@ proc element*(wid: RadioBoxGroup): Checkbox =
 # ########################################################################################################
 # Button
 # ########################################################################################################
-proc newButton*(text: string, x, y, w, h: int, color = fgBlue): Button =
+proc newButton*(text: string, x, y, w, h: int, border = true, color = fgBlue): Button =
   result = Button(
     text: text,
     highlight: false,
@@ -185,23 +187,33 @@ proc newButton*(text: string, x, y, w, h: int, color = fgBlue): Button =
     y: y,
     w: w,
     h: h,
+    border: border,
     color: color,
   )
 
 proc render*(tb: var TerminalBuffer, wid: Button) {.preserveColor.} =
-  tb.fill(wid.x, wid.y, wid.x+wid.w, wid.y+wid.h)
-  tb.write(
-    wid.x+1 + wid.w div 2 - wid.text.len div 2 ,
-    wid.y+1,
-    wid.text
-  )
-  tb.drawRect(
-    wid.x,
-    wid.y,
-    wid.x + wid.w,
-    wid.y + wid.h,
-    doubleStyle=wid.highlight,
-  )
+  if wid.border:
+    tb.fill(wid.x, wid.y, wid.x+wid.w, wid.y+wid.h)
+    tb.drawRect(
+      wid.x,
+      wid.y,
+      wid.x + wid.w,
+      wid.y + wid.h,
+      doubleStyle=wid.highlight,
+    )
+    tb.write(
+      wid.x+1 + wid.w div 2 - wid.text.len div 2 ,
+      wid.y+1,
+      wid.text
+    )
+  else:
+    var style = if wid.highlight: styleBright else: styleDim
+    tb.write(
+      wid.x + wid.w div 2 - wid.text.len div 2 ,
+      wid.y,
+      style, wid.text
+    )
+
 
 proc inside(wid: Button, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.w) and (mi.y in wid.y .. wid.y+wid.h)
@@ -213,13 +225,13 @@ proc dispatch*(tr: var TerminalBuffer, wid: var Button, mi: MouseInfo): Events {
     return
   result.incl MouseHover
   case mi.action
-  of ActionPressed:
+  of mbaPressed:
     wid.highlight = true
     result.incl MouseDown
-  of ActionReleased:
+  of mbaReleased:
     wid.highlight = false
     result.incl MouseUp
-  of ActionNone:
+  of mbaNone:
     wid.highlight = true
 
 # ########################################################################################################
@@ -280,12 +292,12 @@ proc dispatch*(tr: var TerminalBuffer, wid: var ChooseBox, mi: MouseInfo): Event
   if not wid.inside(mi): return
   result.incl MouseHover
   case mi.action
-  of ActionPressed:
+  of mbaPressed:
     result.incl MouseDown
-  of ActionReleased:
+  of mbaReleased:
     wid.choosenidx = clamp( (mi.y - wid.y)-1 , 0, wid.elements.len-1)
     result.incl MouseUp
-  of ActionNone: discard
+  of mbaNone: discard
 
 # ########################################################################################################
 # TextBox
@@ -328,13 +340,13 @@ proc dispatch*(tb: var TerminalBuffer, wid: var TextBox, mi: MouseInfo): Events 
   if wid.inside(mi):
     result.incl MouseHover
     case mi.action
-    of ActionPressed:
+    of mbaPressed:
       result.incl MouseDown
-    of ActionReleased:
+    of mbaReleased:
       wid.focus = true
       result.incl MouseUp
-    of ActionNone: discard
-  elif not wid.inside(mi) and (mi.action == ActionReleased or mi.action == ActionPressed):
+    of mbaNone: discard
+  elif not wid.inside(mi) and (mi.action == mbaReleased or mi.action == mbaPressed):
     wid.focus = false
 
 proc handleKey*(tb: var TerminalBuffer, wid: var TextBox, key: Key): bool {.discardable.} =
@@ -431,8 +443,8 @@ proc dispatch*(tb: var TerminalBuffer, wid: var ProgressBar, mi: MouseInfo): Eve
   if not wid.inside(mi): return
   result.incl MouseHover
   case mi.action
-  of ActionPressed:
+  of mbaPressed:
     result.incl MouseDown
-  of ActionReleased:
+  of mbaReleased:
     result.incl MouseUp
-  of ActionNone: discard
+  of mbaNone: discard
