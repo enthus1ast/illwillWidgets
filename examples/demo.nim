@@ -50,6 +50,7 @@ var progressBarAsync = newProgressBar("some text", 18, 15, 100, 0.0, 50.0)
 var infoProgressBarAsync = newInfoBox("", 18, 16, 100)
 var progressBarInteract = newProgressBar("some text", 18, 18, 50, 0.0, 50.0, bgDone = bgBlue, bgTodo = bgWhite)
 
+# TODO not working properly yet
 var progressBarVertical = newProgressBar("some text", 2, 5, 10, 0.0, 50.0, Vertical)
 progressBarVertical.value = 50.0
 
@@ -243,7 +244,7 @@ while true:
   tb.render(textBox)
 
   tb.render(progressBarAsync)
-  tb.render(progressBarVertical)
+  tb.render(progressBarVertical) # TODO not working properly yet
   tb.render(infoProgressBarAsync)
 
   tb.render(progressBarInteract)
