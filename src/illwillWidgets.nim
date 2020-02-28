@@ -1,10 +1,11 @@
 ## A small widget library for illwill,
 
-import os, strutils
-import illwill
-import macros
+import illwill, macros, strutils
+import strformat, os
 
 macro preserveColor(pr: untyped) =
+  ## this pragma saves the style before a render proc,
+  ## and resets the style after a render proc
   result = newProc()
   result[0] = pr[0]
   let oldbody = pr.body
@@ -24,6 +25,8 @@ type
   Percent* = range[0.0..100.0]
   Event* = enum
     MouseHover, MouseUp, MouseDown
+  Orientation* = enum
+    Horizontal, Vertical
   Events* = set[Event]
   Widget* = object of RootObj
     x*: int
@@ -62,9 +65,12 @@ type
     caretIdx*: int
   ProgressBar* = object of Widget
     text*: string
-    w*: int
+    l*: int ## the length (length instead of width for vertical)
     maxValue*: float
     value*: float
+    orientation*: Orientation
+    bgTodo*: BackgroundColor
+    bgDone*: BackgroundColor
 
 # Cannot do this atm because of layering!
   # ComboBox[Key] = object of Widget
@@ -213,7 +219,6 @@ proc render*(tb: var TerminalBuffer, wid: Button) {.preserveColor.} =
       wid.y,
       style, wid.text
     )
-
 
 proc inside(wid: Button, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.w) and (mi.y in wid.y .. wid.y+wid.h)
@@ -399,16 +404,19 @@ template setKeyAsHandled*(key: Key) =
 # ########################################################################################################
 # ProgressBar
 # ########################################################################################################
-proc newProgressBar*(text: string, x, y: int, w = 10, value = 0.0, maxValue = 100.0): ProgressBar =
+proc newProgressBar*(text: string, x, y: int, l = 10, value = 0.0, maxValue = 100.0,
+    orientation = Horizontal, bgDone = bgGreen , bgTodo = bgRed): ProgressBar =
   result = ProgressBar(
     text: text,
     x: x,
     y: y,
-    w: w,
+    l: l,
     value: value,
-    maxValue: maxValue
+    maxValue: maxValue,
+    orientation: orientation,
+    bgDone: bgDone,
+    bgTodo: bgTodo
   )
-import strformat
 
 proc percent*(wid: ProgressBar): float =
   ## Gets the percentage the progress bar is filled
@@ -422,13 +430,31 @@ proc `percent=`*(wid: var ProgressBar, val: float) =
 proc render*(tb: var TerminalBuffer, wid: ProgressBar) {.preserveColor.} =
   # tb.write(wid.x, wid.y+1, fmt              ")
   # let num:int = ((wid.w-1).float * (percent)).int
-  let num = (wid.w.float / 100.0).float * wid.percent
-  let done = "=".repeat(num.int) # [0..num]
-  let todo = "-".repeat(wid.w - num.int) # [num+1..^1]
-  tb.write(wid.x, wid.y, bgGreen, done, bgRed, todo)
+  let num = (wid.l.float / 100.0).float * wid.percent
+  if wid.orientation == Horizontal:
+    let done = "=".repeat(num.int) # [0..num]
+    let todo = "-".repeat(wid.l - num.int) # [num+1..^1]
+    tb.write(wid.x, wid.y, wid.bgDone, done, wid.bgTodo, todo)
+    if wid.text.len == 0: return
+    let tx = (wid.x + (wid.l div 2) ) - wid.text.len div 2
+    tb.write(tx, wid.y, fgBlack, wid.bgTodo, wid.text ) # TODO
+    # tb.write(tx, wid.y, fgBlack, wid.bgTodo, wid.text[] )
+    # tb.write(tx, wid.y, fgBlack, wid.bgDone, wid.text )
+  elif wid.orientation == Vertical:
+    discard
+    # raise
+    # DUMMY
+    for idx in 0..wid.l:
+      tb.write(wid.x-1, wid.y + idx, "O")
+    # IMPL
+    for todoIdx in 0..(wid.l - num.int):
+      tb.write(wid.x, wid.y + num.int + todoIdx, bgRed, "-")
+    for doneIdx in 0..num.int:
+      let rest = wid.l - num.int
+      tb.write(wid.x, wid.y + rest + doneIdx, bgGreen, "=")
 
 proc inside(wid: ProgressBar, mi: MouseInfo): bool =
-  return (mi.x in wid.x .. wid.x+wid.w) and (mi.y == wid.y)
+  return (mi.x in wid.x .. wid.x+wid.l) and (mi.y == wid.y)
 
 # proc percentOnPos*(wid: ProgressBar, mi: MouseInfo): float =
 #   let cell = ((mi.x - wid.x))
@@ -437,7 +463,7 @@ proc inside(wid: ProgressBar, mi: MouseInfo): bool =
 proc valueOnPos*(wid: ProgressBar, mi: MouseInfo): float =
   if not wid.inside(mi): return 0.0
   let cell = ((mi.x - wid.x))
-  return (cell / wid.w) * wid.maxValue
+  return (cell / wid.l) * wid.maxValue
 
 proc dispatch*(tb: var TerminalBuffer, wid: var ProgressBar, mi: MouseInfo): Events {.discardable.} =
   if not wid.inside(mi): return

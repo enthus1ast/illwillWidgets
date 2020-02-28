@@ -48,9 +48,13 @@ var textBox = newTextBox("foo", 38, 13, 42, placeholder = "Some placeholder")
 
 var progressBarAsync = newProgressBar("some text", 18, 15, 100, 0.0, 50.0)
 var infoProgressBarAsync = newInfoBox("", 18, 16, 100)
+var progressBarInteract = newProgressBar("some text", 18, 18, 50, 0.0, 50.0, bgDone = bgBlue, bgTodo = bgWhite)
 
-var progressBarInteract = newProgressBar("some text", 18, 17, 50, 0.0, 50.0)
-var infoProgressBarInteract = newInfoBox("", 18, 18, 50)
+var progressBarVertical = newProgressBar("some text", 2, 5, 10, 0.0, 50.0, Vertical)
+progressBarVertical.value = 50.0
+
+var infoProgressBarInteract = newInfoBox("", 18, 19, 50)
+var labelProgressBarInteract = newInfoBox("<-- interact with me! (left, right click, scroll)", 70, 18, 50, bgcolor = bgBlack, color = fgWhite)
 
 
 proc asyncDemo(): Future[void] {.async.} =
@@ -59,6 +63,7 @@ proc asyncDemo(): Future[void] {.async.} =
     idx.inc
     infoBoxAsync.text = "Async Demo: " & $idx
     progressBarAsync.value = (idx mod progressBarAsync.maxValue.int).float
+    progressBarVertical.value = (idx mod progressBarAsync.maxValue.int).float
     infoProgressBarAsync.text =
       fmt"{progressBarAsync.value}/{progressBarAsync.maxValue}  percent: {progressBarAsync.percent}"
     # echo progressBar.value
@@ -185,6 +190,13 @@ while true:
     if ev.contains MouseHover:
       infoBox.text = "i get filled by the async code!"
 
+    ev = tb.dispatch(progressBarVertical, coords) # does nothing; is stupid
+    if ev.contains MouseDown:
+      if coords.button == mbLeft:
+        progressBarVertical.value = progressBarVertical.valueOnPos(coords)
+        infoBox.text = $progressBarVertical.value
+
+
     ev = tb.dispatch(progressBarInteract, coords)
     if ev.contains MouseHover:
       infoBox.text = "Interactive progress bar! (left, right click or scroll)"
@@ -200,7 +212,7 @@ while true:
         progressBarInteract.percent = 50.0
     infoProgressBarInteract.text =
       fmt"{progressBarInteract.value}/{progressBarInteract.maxValue}  percent: {progressBarInteract.percent}"
-    tb.write(70, 17, "<-- interact with me! (left, right click, scroll)")
+    # tb.write(70, 17, "<-- interact with me! (left, right click, scroll)")
     tb.dumpMi(coords) # to print mouse debug infos
 
   else:
@@ -231,11 +243,12 @@ while true:
   tb.render(textBox)
 
   tb.render(progressBarAsync)
+  tb.render(progressBarVertical)
   tb.render(infoProgressBarAsync)
 
   tb.render(progressBarInteract)
   tb.render(infoProgressBarInteract)
-
+  tb.render(labelProgressBarInteract)
 
   tb.display()
 

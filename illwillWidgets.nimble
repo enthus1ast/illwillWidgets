@@ -11,4 +11,4 @@ srcDir        = "src"
 # Dependencies
 
 requires "nim >= 1.0.4"
-requires "https://github.com/enthus1ast/illwill"
+requires "https://github.com/johnnovak/illwill.git"
