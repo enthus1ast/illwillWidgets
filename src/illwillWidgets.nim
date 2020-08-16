@@ -411,8 +411,8 @@ proc render*(tb: var TerminalBuffer, wid: ProgressBar) {.preserveColor.} =
   # tb.write(wid.x, wid.y+1, fmt              ")
   # let num:int = ((wid.w-1).float * (percent)).int
   let num = (wid.w.float / 100.0).float * wid.percent
-  let done = "=".repeat(num.int) # [0..num]
-  let todo = "-".repeat(wid.w - num.int) # [num+1..^1]
+  let done = "=".repeat(num.int.clamp(0, int.high)) # [0..num]
+  let todo = "-".repeat((wid.w - num.int).clamp(0, int.high)) # [num+1..^1]
   tb.write(wid.x, wid.y, bgGreen, done, bgRed, todo)
 
 proc inside(wid: ProgressBar, mi: MouseInfo): bool =
