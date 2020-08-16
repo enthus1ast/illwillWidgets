@@ -12,9 +12,13 @@ illwillInit(fullscreen=true, mouse=true)
 setControlCHook(exitProc)
 hideCursor()
 
+# Button
 var btnAsyncHttp = newButton("async http", 21, 3, 15, 2)
 var btnTest = newButton("fill", 38, 3, 15, 2)
 var btnClear = newButton("clear", 38, 6, 15, 2)
+var btnNoBorder = newButton("no border", 21, 7, 15, 1, border = false)
+
+# Checkbox
 var chkTest = newCheckbox("Some content", 38, 9)
 var chkTest2 = newCheckbox("Fill Color", 38, 10)
 chkTest2.textUnchecked = ":)  "
@@ -44,9 +48,14 @@ var textBox = newTextBox("foo", 38, 13, 42, placeholder = "Some placeholder")
 
 var progressBarAsync = newProgressBar("some text", 18, 15, 100, 0.0, 50.0)
 var infoProgressBarAsync = newInfoBox("", 18, 16, 100)
+var progressBarInteract = newProgressBar("some text", 18, 18, 50, 0.0, 50.0, bgDone = bgBlue, bgTodo = bgWhite)
 
-var progressBarInteract = newProgressBar("some text", 18, 17, 50, 0.0, 50.0)
-var infoProgressBarInteract = newInfoBox("", 18, 18, 50)
+# TODO not working properly yet
+var progressBarVertical = newProgressBar("some text", 2, 5, 10, 0.0, 50.0, Vertical)
+progressBarVertical.value = 50.0
+
+var infoProgressBarInteract = newInfoBox("", 18, 19, 50)
+var labelProgressBarInteract = newInfoBox("<-- interact with me! (left, right click, scroll)", 70, 18, 50, bgcolor = bgBlack, color = fgWhite)
 
 
 proc asyncDemo(): Future[void] {.async.} =
@@ -55,6 +64,7 @@ proc asyncDemo(): Future[void] {.async.} =
     idx.inc
     infoBoxAsync.text = "Async Demo: " & $idx
     progressBarAsync.value = (idx mod progressBarAsync.maxValue.int).float
+    progressBarVertical.value = (idx mod progressBarAsync.maxValue.int).float
     infoProgressBarAsync.text =
       fmt"{progressBarAsync.value}/{progressBarAsync.maxValue}  percent: {progressBarAsync.percent}"
     # echo progressBar.value
@@ -63,7 +73,7 @@ asyncCheck asyncDemo()
 
 proc httpCall(tb: ptr TerminalBuffer): Future[void] {.async.} =
   var client = newHttpClient()
-  tb[].write(20, 6, $client.getContent("http://ip.code0.xyz").strip())
+  tb[].write(22, 6, $client.getContent("http://ip.code0.xyz").strip())
 
 proc dumpMi(tb: var TerminalBuffer, mi: MouseInfo) =
   infoBoxMulti.text = (repr mi) #.split("\n")
@@ -74,16 +84,16 @@ proc dumpMi(tb: var TerminalBuffer, mi: MouseInfo) =
 
 proc funDraw(tb: var TerminalBuffer, mi: MouseInfo) =
   tb.write resetStyle
-  if mi.action == ActionPressed:
+  if mi.action == mbaPressed:
     case mi.button
-    of ButtonLeft:
+    of mbLeft:
       tb.write mi.x, mi.y, fgRed, "♥"
-    of ButtonMiddle:
+    of mbMiddle:
       tb.write mi.x, mi.y, fgBlue, "◉"
-    of ButtonRight:
+    of mbRight:
       tb.write mi.x, mi.y, fgCyan, "#"
     else: discard
-  elif mi.action == ActionReleased:
+  elif mi.action == mbaReleased:
     tb.write mi.x, mi.y,  fgGreen, "⌀"
 
 var tb = newTerminalBuffer(terminalWidth(), terminalHeight())
@@ -115,6 +125,13 @@ while true:
       asyncCheck httpCall(addr tb) # the `addr` here is just for demo purpose, not recommend
     if ev.contains MouseHover:
       infoBox.text = "http call to http://ip.code0.xyz to get your public ip!"
+
+    ev = tb.dispatch(btnNoBorder, coords)
+    # if ev.contains MouseUp:
+    #   asyncCheck httpCall(addr tb) # the `addr` here is just for demo purpose, not recommend
+    # if ev.contains MouseHover:
+    #   infoBox.text = "http call to http://ip.code0.xyz to get your public ip!"
+
 
     ev = tb.dispatch(btnClear, coords)
     if ev.contains MouseUp:
@@ -174,22 +191,29 @@ while true:
     if ev.contains MouseHover:
       infoBox.text = "i get filled by the async code!"
 
+    ev = tb.dispatch(progressBarVertical, coords) # does nothing; is stupid
+    if ev.contains MouseDown:
+      if coords.button == mbLeft:
+        progressBarVertical.value = progressBarVertical.valueOnPos(coords)
+        infoBox.text = $progressBarVertical.value
+
+
     ev = tb.dispatch(progressBarInteract, coords)
     if ev.contains MouseHover:
       infoBox.text = "Interactive progress bar! (left, right click or scroll)"
       if coords.scroll:
-        if coords.scrollDir == ScrollUp:
+        if coords.scrollDir == sdUp:
           progressBarInteract.percent = progressBarInteract.percent - 5.0
-        if coords.scrollDir == ScrollDown:
+        if coords.scrollDir == sdDown:
           progressBarInteract.percent = progressBarInteract.percent + 5.0
     if ev.contains MouseDown:
-      if coords.button == ButtonLeft:
+      if coords.button == mbLeft:
         progressBarInteract.value = progressBarInteract.valueOnPos(coords)
-      if coords.button == ButtonRight:
+      if coords.button == mbRight:
         progressBarInteract.percent = 50.0
     infoProgressBarInteract.text =
       fmt"{progressBarInteract.value}/{progressBarInteract.maxValue}  percent: {progressBarInteract.percent}"
-    tb.write(70, 17, "<-- interact with me! (left, right click, scroll)")
+    # tb.write(70, 17, "<-- interact with me! (left, right click, scroll)")
     tb.dumpMi(coords) # to print mouse debug infos
 
   else:
@@ -197,8 +221,10 @@ while true:
     discard
 
   tb.render(btnAsyncHttp)
+  tb.render(btnNoBorder)
   tb.render(btnClear)
   tb.render(btnTest)
+
   tb.render(chkTest)
   tb.render(chkTest2)
   tb.render(chkDraw)
@@ -218,11 +244,12 @@ while true:
   tb.render(textBox)
 
   tb.render(progressBarAsync)
+  tb.render(progressBarVertical) # TODO not working properly yet
   tb.render(infoProgressBarAsync)
 
   tb.render(progressBarInteract)
   tb.render(infoProgressBarInteract)
-
+  tb.render(labelProgressBarInteract)
 
   tb.display()
 
