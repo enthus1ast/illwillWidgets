@@ -286,6 +286,7 @@ proc render*(tb: var TerminalBuffer, wid: ChooseBox) {.preserveColor.} =
     wid.y,
     wid.x + wid.w,
     wid.y + wid.h,
+    wid.highlight
   )
 
 proc inside(wid: ChooseBox, mi: MouseInfo): bool =
