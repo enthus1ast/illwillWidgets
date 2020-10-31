@@ -35,6 +35,8 @@ type
     bgcolor*: BackgroundColor
     style*: Style
     highlight*: bool
+    autoClear*: bool
+    shouldBeCleared: bool
   Button* = object of Widget
     text*: string
     w*: int
@@ -57,6 +59,10 @@ type
     w*: int
     h*: int
     elements*: seq[string]
+    highlightIdx*: int
+    chooseEnabled*: bool
+    title*: string
+    shouldGrow*: bool
   TextBox* = object of Widget
     text*: string
     placeholder*: string
@@ -71,6 +77,7 @@ type
     orientation*: Orientation
     bgTodo*: BackgroundColor
     bgDone*: BackgroundColor
+    colorText*: ForegroundColor
 
 # Cannot do this atm because of layering!
   # ComboBox[Key] = object of Widget
@@ -83,6 +90,12 @@ type
 #   result = ComboBox[Key](
 #     open: false,
 #   )
+
+# ########################################################################################################
+# Widget
+# ########################################################################################################
+proc clear*(wid: var Widget) {.inline.} =
+  wid.shouldBeCleared = true
 
 # ########################################################################################################
 # InfoBox
@@ -197,9 +210,10 @@ proc newButton*(text: string, x, y, w, h: int, border = true, color = fgBlue): B
     color: color,
   )
 
+
 proc render*(tb: var TerminalBuffer, wid: Button) {.preserveColor.} =
   if wid.border:
-    tb.fill(wid.x, wid.y, wid.x+wid.w, wid.y+wid.h)
+    if wid.autoClear or wid.shouldBeCleared: tb.fill(wid.x, wid.y, wid.x+wid.w, wid.y+wid.h)
     tb.drawRect(
       wid.x,
       wid.y,
@@ -243,7 +257,7 @@ proc dispatch*(tr: var TerminalBuffer, wid: var Button, mi: MouseInfo): Events {
 # ChooseBox
 # ########################################################################################################
 proc grow*(wid: var ChooseBox) =
-  ## call this to grow the box immediately if you've added or removed a element
+  ## call this to grow the box if you've added or removed a element
   ## from the `wid.elements` seq.
   if wid.elements.len >= wid.h: wid.h = wid.elements.len+1 # TODO allowedToGrow
 
@@ -253,8 +267,9 @@ proc add*(wid: var ChooseBox, elem: string) =
   wid.grow()
 
 proc newChooseBox*(elements: seq[string], x, y, w, h: int,
-      color = fgBlue, label = "", choosenidx = 0): ChooseBox =
+      color = fgBlue, label = "", choosenidx = 0, shouldGrow = true): ChooseBox =
   ## a list of text items to choose from, sometimes also called listbox
+  ## if `shouldGrow == true` the chooseBox grows automatically when elements added
   result = ChooseBox(
     elements: elements,
     choosenidx: choosenidx,
@@ -264,22 +279,47 @@ proc newChooseBox*(elements: seq[string], x, y, w, h: int,
     h: h,
     color: color,
   )
-  result.grow()
+  result.highlightIdx = -1
+  result.chooseEnabled = true
+  if shouldGrow: result.grow()
+
+proc setChoosenIdx*(wid: var ChooseBox, idx: int) =
+  ## sets the choosen idex to a valid value
+  wid.choosenidx = idx.clamp(0, wid.elements.len - 1)
+
+proc nextChoosenidx*(wid: var ChooseBox, num = 1) =
+  wid.setChoosenIdx(wid.choosenidx + num)
+
+proc prevChoosenidx*(wid: var ChooseBox, num = 1) =
+  wid.setChoosenIdx(wid.choosenidx - num)
 
 proc element*(wid: ChooseBox): string =
   ## returns the currently selected element text
-  return wid.elements[wid.choosenidx]
+  try:
+    return wid.elements[wid.choosenidx]
+  except:
+    return ""
 
-proc render*(tb: var TerminalBuffer, wid: ChooseBox) {.preserveColor.} =
-  tb.fill(wid.x, wid.y, wid.x+wid.w, wid.y+wid.h)
+proc clear(tb: var TerminalBuffer, wid: var ChooseBox) {.inline.} =
+  tb.fill(wid.x, wid.y, wid.x+wid.w, wid.y+wid.h) # maybe not needet?
+  wid.shouldBeCleared = false
+
+proc render*(tb: var TerminalBuffer, wid: var ChooseBox) {.preserveColor.} =
+  # if wid.autoClear or wid.shouldBeCleared:
+  tb.clear(wid)
   for idx, elemRaw in wid.elements:
+    if not wid.shouldGrow:
+      if idx >= wid.h: continue # do not draw additional elements but render scrollbar
     let elem = elemRaw.alignLeft(wid.w)
-    if idx == wid.choosenidx:
+    if idx == wid.choosenidx and wid.chooseEnabled:
       tb.write resetStyle
       tb.write(wid.x+1, wid.y+ 1 + idx, wid.color, wid.bgcolor, styleReverse, elem)
     else:
       tb.write resetStyle
-      tb.write(wid.x+1, wid.y+ 1 + idx, wid.color, wid.bgcolor, elem)
+      if idx == wid.highlightIdx:
+        tb.write(wid.x+1, wid.y+ 1 + idx, wid.color, wid.bgcolor, styleBright, elem)
+      else:
+        tb.write(wid.x+1, wid.y+ 1 + idx, wid.color, wid.bgcolor, elem)
   tb.write resetStyle
   tb.drawRect(
     wid.x,
@@ -288,13 +328,15 @@ proc render*(tb: var TerminalBuffer, wid: ChooseBox) {.preserveColor.} =
     wid.y + wid.h,
     wid.highlight
   )
+  if wid.title.len > 0:
+    tb.write(wid.x + 2, wid.y, "| " & wid.title & " |")
 
 proc inside(wid: ChooseBox, mi: MouseInfo): bool =
   return (mi.x in wid.x .. wid.x+wid.w) and (mi.y in wid.y .. wid.y+wid.h)
 
 proc dispatch*(tr: var TerminalBuffer, wid: var ChooseBox, mi: MouseInfo): Events {.discardable.} =
   result = {}
-  wid.grow()
+  if wid.shouldGrow: wid.grow()
   if not wid.inside(mi): return
   result.incl MouseHover
   case mi.action
@@ -435,10 +477,10 @@ proc render*(tb: var TerminalBuffer, wid: ProgressBar) {.preserveColor.} =
   if wid.orientation == Horizontal:
     let done = "=".repeat(num.int.clamp(0, int.high)) # [0..num]
     let todo = "-".repeat((wid.l - num.int).clamp(0, int.high)) # [num+1..^1]
-    tb.write(wid.x, wid.y, wid.bgDone, done, wid.bgTodo, todo)
+    tb.write(wid.x, wid.y, wid.color, wid.bgDone, done, wid.bgTodo, todo)
     if wid.text.len == 0: return
     let tx = (wid.x + (wid.l div 2) ) - wid.text.len div 2
-    tb.write(tx, wid.y, fgBlack, wid.bgTodo, wid.text ) # TODO
+    tb.write(tx, wid.y, wid.colorText, wid.bgTodo, wid.text ) # TODO
     # tb.write(tx, wid.y, fgBlack, wid.bgTodo, wid.text[] )
     # tb.write(tx, wid.y, fgBlack, wid.bgDone, wid.text )
   elif wid.orientation == Vertical:
