@@ -326,13 +326,20 @@ proc mustBeHighlighted(wid: ChooseBox, idx: int): bool =
 
   # return
 
+proc clampAndFillStr(str: string, upto: int): string =
+  ## if str is smaller than upto, fill the rest
+  ## if str is bigger than upto clamp
+  if str.len >= upto: return str[0 .. min(upto, str.len - 1)]
+  else: return str.alignLeft(upto, ' ')
+  # result = str
+  # if str.len <= upto: result.add "#".repeat(upto - str.len)
+
 proc render*(tb: var TerminalBuffer, wid: var ChooseBox) {.preserveColor.} =
-  # if wid.autoClear or wid.shouldBeCleared:
   tb.clear(wid)
   for idx, elemRaw in wid.view():
     if not wid.shouldGrow:
       if idx >= wid.h: continue # do not draw additional elements but render scrollbar
-    let elem = elemRaw.alignLeft(wid.w)[0..wid.w - 1]
+    let elem = elemRaw.clampAndFillStr(wid.w) # [0 .. wid.w - 1].alignLeft(wid.w)
     if wid.chooseEnabled and wid.mustBeHighlighted(idx):
       tb.write resetStyle
       tb.write(wid.x+1, wid.y+ 1 + idx, wid.color, wid.bgcolor, styleReverse, elem)
