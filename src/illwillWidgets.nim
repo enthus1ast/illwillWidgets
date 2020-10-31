@@ -285,7 +285,7 @@ proc newChooseBox*(elements: seq[string], x, y, w, h: int,
 
 proc setChoosenIdx*(wid: var ChooseBox, idx: int) =
   ## sets the choosen idex to a valid value
-  wid.choosenidx = idx.clamp(0, wid.elements.len - 1)
+  wid.choosenidx = idx.clamp(0, wid.elements.high)
 
 proc nextChoosenidx*(wid: var ChooseBox, num = 1) =
   wid.setChoosenIdx(wid.choosenidx + num)
@@ -304,51 +304,40 @@ proc clear(tb: var TerminalBuffer, wid: var ChooseBox) {.inline.} =
   tb.fill(wid.x, wid.y, wid.x+wid.w, wid.y+wid.h) # maybe not needet?
   wid.shouldBeCleared = false
 
-proc view(wid: ChooseBox): seq[string] =
-  if wid.elements.len <= wid.h: return wid.elements
-  else:
-    return wid.elements[wid.choosenidx .. (wid.choosenidx + wid.h).clamp(0, wid.elements.len - 1) ]
-    # let lower = (wid.choosenidx - (wid.h div 2)-2).clamp(0, wid.elements.len - 1)
-    # let upper = ((wid.choosenidx ) + (wid.h div 2)-1).clamp(0, wid.elements.len - 1)
-    # return wid.elements[lower .. max(upper, wid.elements.len - 1)]
-
-  # return [ .. wid.choosenidx + wid.h]
-  # let middle = (wid.h div 2)
-proc mustBeHighlighted(wid: ChooseBox, idx: int): bool =
-  if wid.elements.len <= wid.h:
-    return idx == wid.choosenidx
-  else:
-    return idx == 0  #idx == wid.choosenidx mod wid.h == 0
-  # if idx == (wid.elements.len / wid.h).floor().int : return true
-  # else:
-
-  #   return idx == min(wid.choosenidx - 2, wid.h div 2 - 1)  #(wid.h - wid.choosenidx div 2 + 1)
-
-  # return
-
 proc clampAndFillStr(str: string, upto: int): string =
   ## if str is smaller than upto, fill the rest
   ## if str is bigger than upto clamp
   if str.len >= upto: return str[0 .. min(upto, str.len - 1)]
   else: return str.alignLeft(upto, ' ')
-  # result = str
-  # if str.len <= upto: result.add "#".repeat(upto - str.len)
 
 proc render*(tb: var TerminalBuffer, wid: var ChooseBox) {.preserveColor.} =
   tb.clear(wid)
-  for idx, elemRaw in wid.view():
-    if not wid.shouldGrow:
-      if idx >= wid.h: continue # do not draw additional elements but render scrollbar
-    let elem = elemRaw.clampAndFillStr(wid.w) # [0 .. wid.w - 1].alignLeft(wid.w)
-    if wid.chooseEnabled and wid.mustBeHighlighted(idx):
+  var fromIdx: int = 0
+  var toIdx: int = wid.elements.len
+  if wid.choosenIdx > wid.h - 4:
+    fromIdx = wid.choosenIdx - wid.h + 2
+  var drawIdx = -1
+  for elemIdx, elemRaw in wid.elements: #.view():
+    if fromIdx > elemIdx:
+      continue
+    if drawIdx >= wid.h - 2:
+      break # TODO: Break out of for loop
+    drawIdx.inc
+    # if not wid.shouldGrow:
+    #   if elemIdx >= wid.h: continue # do not draw additional elements but render scrollbar
+    let elem = elemRaw.clampAndFillStr(wid.w)
+    if wid.chooseEnabled and  elemIdx == wid.choosenIdx:  #wid.mustBeHighlighted(idx):
+      ## Draw selected
       tb.write resetStyle
-      tb.write(wid.x+1, wid.y+ 1 + idx, wid.color, wid.bgcolor, styleReverse, elem)
+      tb.write(wid.x+1, wid.y + 1 + drawIdx, wid.color, wid.bgcolor, styleReverse, elem)
     else:
       tb.write resetStyle
-      if idx == wid.highlightIdx:
-        tb.write(wid.x+1, wid.y+ 1 + idx, wid.color, wid.bgcolor, styleBright, elem)
+      if elemIdx == wid.highlightIdx:
+        ## Draw "bright"
+        tb.write(wid.x+1, wid.y+ 1 + drawIdx, wid.color, wid.bgcolor, styleBright, elem)
       else:
-        tb.write(wid.x+1, wid.y+ 1 + idx, wid.color, wid.bgcolor, elem)
+        ## Draw "normal"
+        tb.write(wid.x+1, wid.y+ 1 + drawIdx, wid.color, wid.bgcolor, elem)
   tb.write resetStyle
   tb.drawRect(
     wid.x,
