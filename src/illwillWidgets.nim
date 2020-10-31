@@ -310,7 +310,7 @@ proc render*(tb: var TerminalBuffer, wid: var ChooseBox) {.preserveColor.} =
   for idx, elemRaw in wid.elements:
     if not wid.shouldGrow:
       if idx >= wid.h: continue # do not draw additional elements but render scrollbar
-    let elem = elemRaw.alignLeft(wid.w)
+    let elem = elemRaw.alignLeft(wid.w)[0..wid.w]
     if idx == wid.choosenidx and wid.chooseEnabled:
       tb.write resetStyle
       tb.write(wid.x+1, wid.y+ 1 + idx, wid.color, wid.bgcolor, styleReverse, elem)
