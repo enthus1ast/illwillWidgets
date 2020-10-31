@@ -1,7 +1,7 @@
 ## A small widget library for illwill,
 
 import illwill, macros, strutils
-import strformat, os
+import strformat, os, math
 
 macro preserveColor(pr: untyped) =
   ## this pragma saves the style before a render proc,
@@ -304,14 +304,36 @@ proc clear(tb: var TerminalBuffer, wid: var ChooseBox) {.inline.} =
   tb.fill(wid.x, wid.y, wid.x+wid.w, wid.y+wid.h) # maybe not needet?
   wid.shouldBeCleared = false
 
+proc view(wid: ChooseBox): seq[string] =
+  if wid.elements.len <= wid.h: return wid.elements
+  else:
+    return wid.elements[wid.choosenidx .. (wid.choosenidx + wid.h).clamp(0, wid.elements.len - 1) ]
+    # let lower = (wid.choosenidx - (wid.h div 2)-2).clamp(0, wid.elements.len - 1)
+    # let upper = ((wid.choosenidx ) + (wid.h div 2)-1).clamp(0, wid.elements.len - 1)
+    # return wid.elements[lower .. max(upper, wid.elements.len - 1)]
+
+  # return [ .. wid.choosenidx + wid.h]
+  # let middle = (wid.h div 2)
+proc mustBeHighlighted(wid: ChooseBox, idx: int): bool =
+  if wid.elements.len <= wid.h:
+    return idx == wid.choosenidx
+  else:
+    return idx == 0  #idx == wid.choosenidx mod wid.h == 0
+  # if idx == (wid.elements.len / wid.h).floor().int : return true
+  # else:
+
+  #   return idx == min(wid.choosenidx - 2, wid.h div 2 - 1)  #(wid.h - wid.choosenidx div 2 + 1)
+
+  # return
+
 proc render*(tb: var TerminalBuffer, wid: var ChooseBox) {.preserveColor.} =
   # if wid.autoClear or wid.shouldBeCleared:
   tb.clear(wid)
-  for idx, elemRaw in wid.elements:
+  for idx, elemRaw in wid.view():
     if not wid.shouldGrow:
       if idx >= wid.h: continue # do not draw additional elements but render scrollbar
-    let elem = elemRaw.alignLeft(wid.w)[0..wid.w]
-    if idx == wid.choosenidx and wid.chooseEnabled:
+    let elem = elemRaw.alignLeft(wid.w)[0..wid.w - 1]
+    if wid.chooseEnabled and wid.mustBeHighlighted(idx):
       tb.write resetStyle
       tb.write(wid.x+1, wid.y+ 1 + idx, wid.color, wid.bgcolor, styleReverse, elem)
     else:
