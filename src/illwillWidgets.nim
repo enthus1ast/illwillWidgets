@@ -22,6 +22,8 @@ macro preserveColor(pr: untyped) =
     tb.setStyle oldStyle
 
 type
+  WrapMode* {.pure.} = enum
+    None, Char #, Word
   Percent* = range[0.0..100.0]
   Event* = enum
     MouseHover, MouseUp, MouseDown
@@ -53,6 +55,7 @@ type
     text*: string
     w*: int
     h*: int
+    wrapMode*: WrapMode
   ChooseBox* = object of Widget
     bgcolorChoosen*: BackgroundColor
     choosenidx*: int
@@ -63,6 +66,7 @@ type
     chooseEnabled*: bool
     title*: string
     shouldGrow*: bool
+    filter*: string
   TextBox* = object of Widget
     text*: string
     placeholder*: string
@@ -92,6 +96,26 @@ type
 #   )
 
 # ########################################################################################################
+# Utils
+# ########################################################################################################
+proc wrapText*(str: string, maxLen: int, wrapMode: WrapMode): string =
+  case wrapMode
+  of WrapMode.None: return str
+  of Char:
+    var num = 0
+    for ch in str:
+      result.add ch
+      num.inc
+      if ch == '\c': ## cannot check for "\n" when iterating chars, guess '\c' is enough for our usecase...
+        num = 0
+      if num == maxLen:
+        result.add "\n"
+        num = 0
+  # of WrapMode.Word:
+  #   discard
+
+
+# ########################################################################################################
 # Widget
 # ########################################################################################################
 proc clear*(wid: var Widget) {.inline.} =
@@ -109,11 +133,12 @@ proc newInfoBox*(text: string, x, y: int, w = 10, h = 1, color = fgBlack, bgcolo
     h: h,
     color: color,
     bgcolor: bgcolor,
+    wrapMode: WrapMode.None
   )
 
 proc render*(tb: var TerminalBuffer, wid: InfoBox) {.preserveColor.} =
   # TODO save old text to only overwrite the len of the old text
-  let  lines = wid.text.splitLines()
+  let  lines = wid.text.wrapText(wid.w, wid.wrapMode).splitLines()
   for idx in 0..lines.len-1:
     tb.write(wid.x, wid.y+idx, lines[idx].alignLeft(wid.w))
 
@@ -293,12 +318,37 @@ proc nextChoosenidx*(wid: var ChooseBox, num = 1) =
 proc prevChoosenidx*(wid: var ChooseBox, num = 1) =
   wid.setChoosenIdx(wid.choosenidx - num)
 
-proc element*(wid: ChooseBox): string =
+proc filter*(query: string, elems: seq[string]): seq[int] =
+  ## TODO filter must be somewhere else, maybe needet for other widgets
+  if query.len <= 2: return @[]
+  let queryClean = query.toLower()
+  for idx, elem in elems:
+    let elemClean = elem.toLower().strip()
+    if elemClean.contains(queryClean): result.add idx
+
+proc filterElements(wid: var ChooseBox): seq[string] =
+  if wid.filter.len == 0: return wid.elements
+  for idx in filter(wid.filter, wid.elements):
+    result.add wid.elements[idx]
+
+proc element*(wid: var ChooseBox): string =
   ## returns the currently selected element text
-  try:
-    return wid.elements[wid.choosenidx]
-  except:
-    return ""
+  # try:
+  #   return wid.elements[wid.choosenidx]
+  # except:
+  #   return ""
+
+  if wid.filter.len == 0:
+    try:
+      return wid.elements[wid.choosenidx]
+    except:
+      return ""
+  else:
+    try:
+      return wid.filterElements()[wid.choosenidx]
+    except:
+      return ""
+
 
 proc clear(tb: var TerminalBuffer, wid: var ChooseBox) {.inline.} =
   tb.fill(wid.x, wid.y, wid.x+wid.w, wid.y+wid.h) # maybe not needet?
@@ -312,12 +362,15 @@ proc clampAndFillStr(str: string, upto: int): string =
 
 proc render*(tb: var TerminalBuffer, wid: var ChooseBox) {.preserveColor.} =
   tb.clear(wid)
+  let filteredElements = wid.filterElements()
   var fromIdx: int = 0
-  var toIdx: int = wid.elements.len
+  # var toIdx: int = wid.elements.len
+  var toIdx: int = filteredElements.len
   if wid.choosenIdx > wid.h - 4:
     fromIdx = wid.choosenIdx - wid.h + 2
   var drawIdx = -1
-  for elemIdx, elemRaw in wid.elements: #.view():
+  # for elemIdx, elemRaw in wid.elements: #.view():
+  for elemIdx, elemRaw in filteredElements: #.view():
     if fromIdx > elemIdx:
       continue
     if drawIdx >= wid.h - 2:
@@ -359,9 +412,10 @@ proc dispatch*(tr: var TerminalBuffer, wid: var ChooseBox, mi: MouseInfo): Event
   result.incl MouseHover
   case mi.action
   of mbaPressed:
+    wid.choosenidx = clamp( (mi.y - wid.y)-1 , 0, wid.elements.len-1) # Moved up TEST if everything works
     result.incl MouseDown
   of mbaReleased:
-    wid.choosenidx = clamp( (mi.y - wid.y)-1 , 0, wid.elements.len-1)
+    # wid.choosenidx = clamp( (mi.y - wid.y)-1 , 0, wid.elements.len-1) # Moved up TEST if everything works
     result.incl MouseUp
   of mbaNone: discard
 
@@ -453,9 +507,12 @@ proc handleKey*(tb: var TerminalBuffer, wid: var TextBox, key: Key): bool {.disc
     # Add ascii representation
     var ch = $key.char
     if wid.text.len < wid.w:
-      wid.text.insert(ch, wid.caretIdx)
-      wid.caretIdx.inc
-      wid.caretIdx = clamp(wid.caretIdx, 0, wid.text.len)
+      try: # TODO this try catch should not be needet!!
+        wid.text.insert(ch, wid.caretIdx)
+        wid.caretIdx.inc
+        wid.caretIdx = clamp(wid.caretIdx, 0, wid.text.len)
+      except:
+        discard
 
 template setKeyAsHandled*(key: Key) =
   ## call this on key when the key was handled by a textbox
