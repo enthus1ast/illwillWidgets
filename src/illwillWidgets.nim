@@ -332,12 +332,6 @@ proc filterElements(wid: var ChooseBox): seq[string] =
     result.add wid.elements[idx]
 
 proc element*(wid: var ChooseBox): string =
-  ## returns the currently selected element text
-  # try:
-  #   return wid.elements[wid.choosenidx]
-  # except:
-  #   return ""
-
   if wid.filter.len == 0:
     try:
       return wid.elements[wid.choosenidx]
