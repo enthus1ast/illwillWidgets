@@ -343,7 +343,6 @@ proc element*(wid: var ChooseBox): string =
     except:
       return ""
 
-
 proc clear(tb: var TerminalBuffer, wid: var ChooseBox) {.inline.} =
   tb.fill(wid.x, wid.y, wid.x+wid.w, wid.y+wid.h) # maybe not needet?
   wid.shouldBeCleared = false
