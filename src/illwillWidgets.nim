@@ -82,6 +82,7 @@ type
     bgTodo*: BackgroundColor
     bgDone*: BackgroundColor
     colorText*: ForegroundColor
+    colorTextDone*: ForegroundColor
 
 # Cannot do this atm because of layering!
   # ComboBox[Key] = object of Widget
@@ -531,7 +532,9 @@ proc newProgressBar*(text: string, x, y: int, l = 10, value = 0.0, maxValue = 10
     maxValue: maxValue,
     orientation: orientation,
     bgDone: bgDone,
-    bgTodo: bgTodo
+    bgTodo: bgTodo,
+    colorText: fgYellow,
+    colorTextDone: fgBlack
   )
 
 proc percent*(wid: ProgressBar): float =
@@ -540,23 +543,33 @@ proc percent*(wid: ProgressBar): float =
 
 proc `percent=`*(wid: var ProgressBar, val: float) =
   ## sets the percentage the progress bar should be filled
-  # if val < 0
   wid.value = (val * wid.maxValue / 100.0).clamp(0.0, wid.maxValue)
 
 proc render*(tb: var TerminalBuffer, wid: ProgressBar) {.preserveColor.} =
-  # tb.write(wid.x, wid.y+1, fmt              ")
-  # let num:int = ((wid.w-1).float * (percent)).int
   let num = (wid.l.float / 100.0).float * wid.percent
   if wid.orientation == Horizontal:
-    let done = "=".repeat(num.int.clamp(0, int.high)) # [0..num]
-    let todo = "-".repeat((wid.l - num.int).clamp(0, int.high)) # [num+1..^1]
-    tb.write(wid.x, wid.y, wid.color, wid.bgDone, done, wid.bgTodo, todo)
-    if wid.text.len == 0: return
-    let tx = (wid.x + (wid.l div 2) ) - wid.text.len div 2
-    tb.write(tx, wid.y, wid.colorText, wid.bgTodo, wid.text ) # TODO
-    # tb.write(tx, wid.y, fgBlack, wid.bgTodo, wid.text[] )
-    # tb.write(tx, wid.y, fgBlack, wid.bgDone, wid.text )
-  elif wid.orientation == Vertical:
+    # write progress idicator
+    let doneRange =  wid.x .. wid.x + num.int - 1
+    let todoRange = wid.x + num.int .. (wid.x + wid.l) - 1
+    for idxx in doneRange:
+      tb.write(idxx, wid.y, wid.color, wid.bgDone, "=")
+    for idxx in todoRange:
+      tb.write(idxx, wid.y, wid.color, wid.bgTodo, "-")
+
+    if wid.text.len > 0:
+      let textRange = (wid.x + (wid.l div 2) ) - wid.text.len div 2 .. ((wid.x + (wid.l div 2) ) - wid.text.len div 2) + (wid.text.len - 1)
+      var idx = 0
+      for idxx in textRange:
+        let ch = $wid.text[idx]  # txt[] # get the char at this idxx position
+        idx.inc
+        if doneRange.contains idxx:
+          tb.write(idxx, wid.y, wid.colorTextDone, wid.bgDone, ch) # TODO
+        elif todoRange.contains idxx:
+          tb.write(idxx, wid.y, wid.colorText, wid.bgTodo, ch) # TODO
+        else:
+          tb.write(idxx, wid.y, wid.colorText, ch) # TODO
+
+  elif wid.orientation == Vertical: # TODO Vertical is not fully supported yet. It might work for you, though.
     discard
     # raise
     # DUMMY

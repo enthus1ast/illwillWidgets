@@ -103,3 +103,7 @@ changelog
 - 0.1.8
   - Elements of a radio group box are pointer now. Before they where copied into the element.
   - radio group box: `uncheckAll`
+  - `positionHelper(coords: MouseInfo): string` returns the mouse position absolute and from the edges
+  - progress bar does hightlight text background
+    - colorText: fgColor # text color when not done
+    - colorTextDone: fgColor # text color when done
