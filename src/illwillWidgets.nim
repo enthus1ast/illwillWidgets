@@ -50,7 +50,7 @@ type
     textChecked*: string
     textUnchecked*: string
   RadioBoxGroup* = object of Widget
-    radioButtons*: seq[Checkbox]
+    radioButtons*: seq[ptr Checkbox]
   InfoBox* = object of Widget
     text*: string
     w*: int
@@ -114,6 +114,8 @@ proc wrapText*(str: string, maxLen: int, wrapMode: WrapMode): string =
   # of WrapMode.Word:
   #   discard
 
+proc positionHelper*(coords: MouseInfo): string =
+  result = fmt"x:{coords.x} y:{coords.y} bot:{coords.y - terminalHeight()} right:{coords.x - terminalWidth()}"
 
 # ########################################################################################################
 # Widget
@@ -192,7 +194,7 @@ proc newRadioBox*(text: string, x, y: int, color = fgBlue): Checkbox =
   result.textChecked = "(X) "
   result.textUnchecked = "( ) "
 
-proc newRadioBoxGroup*(radioButtons: seq[Checkbox]): RadioBoxGroup =
+proc newRadioBoxGroup*(radioButtons: seq[ptr Checkbox]): RadioBoxGroup =
   ## Create a new radio box, add radio boxes to the group,
   ## then call the *groups* `render` and `dispatch` proc.
   result = RadioBoxGroup(
@@ -201,24 +203,27 @@ proc newRadioBoxGroup*(radioButtons: seq[Checkbox]): RadioBoxGroup =
 
 proc render*(tb: var TerminalBuffer, wid: RadioBoxGroup) {.preserveColor.} =
   for radioButton in wid.radioButtons:
-    tb.render(radioButton)
+    tb.render(radioButton[])
+
+proc uncheckAll*(wid: var RadioBoxGroup) =
+  for radioButton in wid.radioButtons.mitems:
+    radioButton[].checked = false
 
 proc dispatch*(tb: var TerminalBuffer, wid: var RadioBoxGroup, mi: MouseInfo): Events {.discardable.} =
   var insideSome = false
   for radioButton in wid.radioButtons.mitems:
-    if radioButton.inside(mi): insideSome = true
+    if radioButton[].inside(mi): insideSome = true
   if (not insideSome) or (mi.action != mbaReleased): return
+  wid.uncheckAll()
   for radioButton in wid.radioButtons.mitems:
-    radioButton.checked = false
-  for radioButton in wid.radioButtons.mitems:
-    let ev = tb.dispatch(radioButton, mi)
+    let ev = tb.dispatch(radioButton[], mi)
     result.incl ev
 
 proc element*(wid: RadioBoxGroup): Checkbox =
   ## returns the currect selected element of the `RadioBoxGroup`
   for radioButton in wid.radioButtons:
     if radioButton.checked:
-      return radioButton
+      return radioButton[]
 
 # ########################################################################################################
 # Button

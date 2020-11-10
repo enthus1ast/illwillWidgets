@@ -39,7 +39,7 @@ chkRadA.checked = true
 var chkRadB = newRadioBox("Radio Box Option B", 56, 5)
 var chkRadC = newRadioBox("Radio Box Option C", 56, 6)
 var radioBoxGroup = newRadioBoxGroup(@[
-  chkRadA, chkRadB, chkRadC
+  addr chkRadA, addr chkRadB, addr chkRadC
 ])
 
 var chooseBox = newChooseBox(@[" ", "#", "@", "§"], 81, 3, 10, 5, choosenidx=2)
