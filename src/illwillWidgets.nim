@@ -83,6 +83,15 @@ type
     bgDone*: BackgroundColor
     colorText*: ForegroundColor
     colorTextDone*: ForegroundColor
+  TableBox* = object of Widget
+    headers*: seq[(int, string)]
+    rows*: seq[seq[string]]
+    highlightIdx*: int
+    w*: int
+    h*: int
+    bdColor: ForegroundColor
+    colorHighlight: ForegroundColor
+    bgHighlight: BackgroundColor
 
 # Cannot do this atm because of layering!
   # ComboBox[Key] = object of Widget
@@ -363,8 +372,6 @@ proc render*(tb: var TerminalBuffer, wid: var ChooseBox) {.preserveColor.} =
   tb.clear(wid)
   let filteredElements = wid.filterElements()
   var fromIdx: int = 0
-  # var toIdx: int = wid.elements.len
-  var toIdx: int = filteredElements.len
   if wid.choosenIdx > wid.h - 4:
     fromIdx = wid.choosenIdx - wid.h + 2
   var drawIdx = -1
@@ -386,10 +393,10 @@ proc render*(tb: var TerminalBuffer, wid: var ChooseBox) {.preserveColor.} =
       tb.write resetStyle
       if elemIdx == wid.highlightIdx:
         ## Draw "bright"
-        tb.write(wid.x+1, wid.y+ 1 + drawIdx, wid.color, wid.bgcolor, styleBright, elem)
+        tb.write(wid.x + 1, wid.y + 1 + drawIdx, wid.color, wid.bgcolor, styleBright, elem)
       else:
         ## Draw "normal"
-        tb.write(wid.x+1, wid.y+ 1 + drawIdx, wid.color, wid.bgcolor, elem)
+        tb.write(wid.x + 1, wid.y + 1 + drawIdx, wid.color, wid.bgcolor, elem)
   tb.write resetStyle
   tb.drawRect(
     wid.x,
@@ -603,3 +610,107 @@ proc dispatch*(tb: var TerminalBuffer, wid: var ProgressBar, mi: MouseInfo): Eve
   of mbaReleased:
     result.incl MouseUp
   of mbaNone: discard
+
+# ########################################################################################################
+# TableBox
+# ########################################################################################################
+proc newTableBox*(x, y, w, h: int, borderColor = fgCyan, color = fgWhite, bgColor = bgBlack, colorHighlight = fgRed, bgHighlight = bgYellow): TableBox =
+  result = TableBox(
+    x: x,
+    y: y,
+    w: w,
+    h: h,
+    color: color,
+    bdColor: borderColor,
+    bgColor: bgColor,
+    colorHighlight: colorHighlight,
+    bgHighlight: bgHighlight
+  )
+  result.highlightIdx = -1
+
+proc addCol*(wid: var TableBox, header: string, width: int) =
+  wid.headers.add((width, header))
+
+#TODO make it scrollable
+#proc clear*(wid: var TableBox) =
+#  wid.rows = @[]
+
+proc addRow*(wid: var TableBox, row: seq[string]) =
+  wid.rows.add(row)
+
+proc inside(wid: TableBox, mi: MouseInfo): bool =
+  result = wid.x < mi.x and mi.x < wid.x + wid.w and wid.y < mi.y and mi.y < wid.y + wid.h
+
+proc dispatch*(tb: var TerminalBuffer, wid: var TableBox, mi: MouseInfo): Events {.discardable.} =
+  tb.setForegroundColor(fgRed)
+  if not wid.inside(mi):
+    wid.highlightIdx = -1
+    return
+
+  result.incl MouseHover
+  case mi.action
+  of mbaPressed:
+    result.incl MouseDown
+    wid.highlightIdx = mi.y - (wid.y + 3)
+  of mbaReleased:
+    result.incl MouseUp
+  of mbaNone: discard
+
+proc render*(tb: var TerminalBuffer, wid: var TableBox) {.preserveColor.} =
+  let
+    x1 = wid.x
+    y1 = wid.y
+    x2 = x1 + wid.w - 1
+    y2 = y1 + wid.h - 1
+
+  var bb = newBoxBuffer(tb.width, tb.height)
+  # Draw border
+  bb.drawVertLine(x1, y1, y2)
+  bb.drawVertLine(x2, y1, y2)
+  bb.drawHorizLine(x1, x2, y1)
+  bb.drawHorizLine(x1, x2, y2)
+
+  # Draw headers
+  tb.setForegroundColor(wid.color)
+  var y = y1 + 1
+  bb.drawHorizLine(x1, x2, y+1)
+  tb.setForegroundColor(wid.color)
+  var
+    x = x1
+    i = 0
+  for (w, t) in wid.headers:
+    tb.write(x + 1, y, t)
+    inc(x, w)
+    inc(i)
+    if i < wid.headers.len:
+      bb.drawVertLine(x, y1, y2)
+
+  # Draw contents
+  i = 0
+  for row in wid.rows:
+    y = y1 + 2
+    x = x1
+    var j = 0
+
+    if i == wid.highlightIdx:
+      tb.setBackgroundColor(wid.bgHighlight)
+      tb.setForegroundColor(wid.colorHighlight)
+    else:
+      tb.setBackgroundColor(wid.bgColor)
+      tb.setForegroundColor(wid.color)
+
+    for t in row:
+      if j >= wid.headers.len:
+        break
+      tb.write(x + 1, y + i + 1, t)
+      inc(x, wid.headers[j][0])
+      inc(j)
+    inc(i)
+
+  tb.setBackgroundColor(wid.bgColor)
+  tb.setForegroundColor(wid.bdColor)
+  tb.write(bb)
+
+  if wid.color != wid.colorHighlight and wid.bgColor != wid.bgHighlight:
+    if getKey() == Key.Mouse:
+      discard tb.dispatch(wid, getMouse())
