@@ -57,6 +57,13 @@ progressBarVertical.value = 50.0
 var infoProgressBarInteract = newInfoBox("", 18, 19, 50)
 var labelProgressBarInteract = newInfoBox("<-- interact with me! (left, right click, scroll)", 70, 18, 50, bgcolor = bgBlack, color = fgWhite)
 
+var table = newTableBox(1, 20, 40, 6)
+table.addCol("#", 2)
+table.addCol("Name", 10)
+table.addCol("Age", 4)
+table.addCol("Notes", 40)
+table.addRow(@["1", "John Doe", "40", "Most Wanted"])
+table.addRow(@["2", "Jane Doe", "38", "Missing"])
 
 proc asyncDemo(): Future[void] {.async.} =
   var idx = 0
@@ -250,6 +257,8 @@ while true:
   tb.render(progressBarInteract)
   tb.render(infoProgressBarInteract)
   tb.render(labelProgressBarInteract)
+
+  tb.render(table)
 
   tb.display()
 
