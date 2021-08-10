@@ -18,7 +18,7 @@ Widgets
 - (simple) textbox
 - "info" box (like a status bar)
 - progressbar / slider
-
+- table w/ fixed header
 example
 =======
 
@@ -99,7 +99,8 @@ for a complete example see [examples/demo.nim](examples/demo.nim)
 
 changelog
 =========
-
+- 0.1.9
+  - Added `TableBox` to render a table of data w/ a fixed header
 - 0.1.8
   - Elements of a radio group box are pointer now. Before they where copied into the element.
   - radio group box: `uncheckAll`
