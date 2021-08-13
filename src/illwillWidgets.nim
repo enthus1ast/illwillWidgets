@@ -2,6 +2,7 @@
 
 import illwill, macros, strutils
 import strformat, os, math
+import std/wordwrap
 
 macro preserveColor(pr: untyped) =
   ## this pragma saves the style before a render proc,
@@ -23,7 +24,7 @@ macro preserveColor(pr: untyped) =
 
 type
   WrapMode* {.pure.} = enum
-    None, Char #, Word
+    None, Char, Word
   Percent* = range[0.0..100.0]
   Event* = enum
     MouseHover, MouseUp, MouseDown
@@ -111,18 +112,10 @@ type
 proc wrapText*(str: string, maxLen: int, wrapMode: WrapMode): string =
   case wrapMode
   of WrapMode.None: return str
-  of Char:
-    var num = 0
-    for ch in str:
-      result.add ch
-      num.inc
-      if ch == '\c': ## cannot check for "\n" when iterating chars, guess '\c' is enough for our usecase...
-        num = 0
-      if num == maxLen:
-        result.add "\n"
-        num = 0
-  # of WrapMode.Word:
-  #   discard
+  of WrapMode.Char:
+    return wrapWords(str, maxLen, splitLongWords = true)
+  of WrapMode.Word:
+    return wrapWords(str, maxLen, splitLongWords = false)
 
 proc positionHelper*(coords: MouseInfo): string =
   result = fmt"x:{coords.x} y:{coords.y} bot:{coords.y - terminalHeight()} right:{coords.x - terminalWidth()}"
