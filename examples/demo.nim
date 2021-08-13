@@ -223,6 +223,8 @@ while true:
     # tb.write(70, 17, "<-- interact with me! (left, right click, scroll)")
     tb.dumpMi(coords) # to print mouse debug infos
 
+    ev = tb.dispatch(table, coords)
+
   else:
     infoBox.text = $key
     discard
