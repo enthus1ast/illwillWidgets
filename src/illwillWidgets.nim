@@ -1,7 +1,7 @@
 ## A small widget library for illwill,
 
 import illwill, macros, strutils
-import strformat, os, math
+import strformat, math
 import std/wordwrap
 
 macro preserveColor(pr: untyped) =
@@ -343,12 +343,12 @@ proc element*(wid: var ChooseBox): string =
   if wid.filter.len == 0:
     try:
       return wid.elements[wid.choosenidx]
-    except:
+    except CatchableError:
       return ""
   else:
     try:
       return wid.filterElements()[wid.choosenidx]
-    except:
+    except CatchableError:
       return ""
 
 proc clear(tb: var TerminalBuffer, wid: var ChooseBox) {.inline.} =
@@ -494,9 +494,9 @@ proc handleKey*(tb: var TerminalBuffer, wid: var TextBox, key: Key): bool {.disc
     wid.caretIdx = 0
   of Backspace:
     try:
-      delete(wid.text, wid.caretIdx-1, wid.caretIdx-1)
+      delete(wid.text, wid.caretIdx-1..wid.caretIdx-1)
       decCaret
-    except:
+    except CatchableError:
       discard
   of Right:
     incCaret
@@ -506,12 +506,9 @@ proc handleKey*(tb: var TerminalBuffer, wid: var TextBox, key: Key): bool {.disc
     # Add ascii representation
     var ch = $key.char
     if wid.text.len < wid.w:
-      try: # TODO this try catch should not be needet!!
-        wid.text.insert(ch, wid.caretIdx)
-        wid.caretIdx.inc
-        wid.caretIdx = clamp(wid.caretIdx, 0, wid.text.len)
-      except:
-        discard
+      wid.text.insert(ch, wid.caretIdx)
+      wid.caretIdx.inc
+      wid.caretIdx = clamp(wid.caretIdx, 0, wid.text.len)
 
 template setKeyAsHandled*(key: Key) =
   ## call this on key when the key was handled by a textbox
